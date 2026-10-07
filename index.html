@@ -652,39 +652,6 @@
       showToast("기록이 취소되었습니다. 다시 출발해 주세요!", "🔄");
     }
 
-    // 🔌 Web Serial 연결 (Vercel에서는 팝업 정상 작동!)
-    async function connectTimerSerial() {
-      if (!("serial" in navigator)) {
-        alert("이 브라우저는 Web Serial API를 지원하지 않습니다. Chrome을 사용해주세요.");
-        return;
-      }
-      try {
-        serialPort = await navigator.serial.requestPort();
-        await serialPort.open({ baudRate: 9600 });
-        const badge = document.getElementById('serialStatusBadge');
-        badge.className = "px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-600 text-white shadow-sm flex items-center gap-1";
-        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-white"></span><span>타이머 연결됨</span>`;
-        showToast("하드웨어 타이머와 연결되었습니다!", "🔌");
-
-        const textDecoder = new TextDecoderStream();
-        serialPort.readable.pipeTo(textDecoder.writable);
-        const reader = textDecoder.readable.getReader();
-        let buffer = "";
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          if (value) {
-            buffer += value;
-            const lines = buffer.split(/[\r\n]+/);
-            buffer = lines.pop();
-            lines.forEach(line => { if (line.includes('=')) handleIncomingTimerString(line); });
-          }
-        }
-      } catch (err) {
-        console.error("시리얼 연결 취소/오류:", err);
-      }
-    }
-
     // 가상 시뮬레이터 팝업 제어
     function toggleSimPopup() {
       document.getElementById('simPopup').classList.toggle('hidden');
