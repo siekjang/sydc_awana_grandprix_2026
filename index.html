@@ -270,20 +270,58 @@
       setTimeout(() => toast.remove(), 3000);
     }
 
+    // 탭 전환 스타일 (활성 탭은 선명한 화이트/슬레이트, 비활성은 짙은 회색)
     function switchTab(tab) {
       if (tab === 'qualifying') {
         document.getElementById('view-qualifying').classList.remove('hidden');
         document.getElementById('view-finals').classList.add('hidden');
-        document.getElementById('tabBtn-qualifying').className = "px-4 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-xl shadow transition";
-        document.getElementById('tabBtn-finals').className = "px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition";
+        document.getElementById('tabBtn-qualifying').className = "px-3.5 py-1.5 bg-slate-100 text-slate-900 font-bold rounded-lg shadow-sm transition";
+        document.getElementById('tabBtn-finals').className = "px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-lg border border-transparent transition";
       } else {
         document.getElementById('view-qualifying').classList.add('hidden');
         document.getElementById('view-finals').classList.remove('hidden');
-        document.getElementById('tabBtn-finals').className = "px-4 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-xl shadow transition";
-        document.getElementById('tabBtn-qualifying').className = "px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition";
+        document.getElementById('tabBtn-finals').className = "px-3.5 py-1.5 bg-slate-100 text-slate-900 font-bold rounded-lg shadow-sm transition";
+        document.getElementById('tabBtn-qualifying').className = "px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-lg border border-transparent transition";
         renderCurrentFinalHeat();
       }
     }
+
+    // 타이머 연결 성공 시: 초록색 뱃지로 전환
+    async function connectTimerSerial() {
+      if (!("serial" in navigator)) {
+        alert("이 브라우저는 Web Serial API를 지원하지 않습니다. Chrome을 사용해주세요.");
+        return;
+      }
+      try {
+        serialPort = await navigator.serial.requestPort();
+        await serialPort.open({ baudRate: 9600 });
+        
+        // 연결 성공: 초록색 불 점등
+        const badge = document.getElementById('serialStatusBadge');
+        badge.className = "px-3 py-1.5 rounded-lg border border-emerald-600/40 bg-emerald-950/60 text-emerald-300 flex items-center gap-1.5 transition";
+        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span><span>타이머 연결됨</span>`;
+        
+        showToast("하드웨어 타이머와 연결되었습니다.");
+
+        const textDecoder = new TextDecoderStream();
+        serialPort.readable.pipeTo(textDecoder.writable);
+        const reader = textDecoder.readable.getReader();
+        let buffer = "";
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          if (value) {
+            buffer += value;
+            const lines = buffer.split(/[\r\n]+/);
+            buffer = lines.pop();
+            lines.forEach(line => { if (line.includes('=')) handleIncomingTimerString(line); });
+          }
+        }
+      } catch (err) {
+        console.error("시리얼 연결 취소/오류:", err);
+      }
+    }
+    
 
     function initDynamicHeats() {
       qualifyingHeats = [];
