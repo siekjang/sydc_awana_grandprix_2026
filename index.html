@@ -28,33 +28,34 @@
         </div>
       </div>
 
-      <!-- 제어 버튼군 -->
-      <div class="flex items-center flex-wrap gap-2">
-        <span id="serialStatusBadge" class="px-3 py-1.5 rounded-full text-xs font-bold bg-rose-600 text-white shadow-sm flex items-center gap-1">
-          <span class="w-2 h-2 rounded-full bg-white"></span>
+      <!-- 제어 버튼군 (이모지 제거 및 모노톤 정돈) -->
+      <div class="flex items-center flex-wrap gap-2 text-xs font-medium">
+        <!-- 타이머 상태 뱃지: 미연결 시 회색, 연결 시 초록색 -->
+        <span id="serialStatusBadge" class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 flex items-center gap-1.5 transition">
+          <span class="w-2 h-2 rounded-full bg-slate-500"></span>
           <span>타이머 미연결</span>
         </span>
 
-        <button onclick="connectTimerSerial()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow transition flex items-center gap-1">
-          🔌 타이머 연결
+        <button onclick="connectTimerSerial()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition">
+          타이머 연결
         </button>
 
-        <button onclick="toggleSimPopup()" class="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl shadow transition flex items-center gap-1">
-          🧪 가상 테스트
+        <button onclick="toggleSimPopup()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition">
+          가상 테스트
         </button>
 
-        <div class="h-5 w-px bg-slate-700 mx-1"></div>
+        <div class="h-4 w-px bg-slate-700 mx-1"></div>
 
-        <button id="tabBtn-qualifying" onclick="switchTab('qualifying')" class="px-4 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-xl shadow transition">
-          1. 예선전 레이스
+        <button id="tabBtn-qualifying" onclick="switchTab('qualifying')" class="px-3.5 py-1.5 bg-slate-100 text-slate-900 font-bold rounded-lg shadow-sm transition">
+          예선 레이스
         </button>
-        <button id="tabBtn-finals" onclick="switchTab('finals')" class="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition">
-          2. 결선 레이스 (4회)
+        <button id="tabBtn-finals" onclick="switchTab('finals')" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-lg border border-transparent transition">
+          결선 레이스 (4회)
         </button>
-        <button onclick="runTop4Sync()" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow transition">
-          📢 결선 진출 발표
+        <button onclick="runTop4Sync()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg transition">
+          결선 진출 발표
         </button>
-      </div>
+      </div>     
     </div>
   </header>
 
