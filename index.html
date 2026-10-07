@@ -323,28 +323,45 @@
     }
     
 
+// 동적 조 편성: 1차 주행(1-2-3-4) 후 2차 주행(안쪽-바깥쪽 교체: 2-1-4-3)
     function initDynamicHeats() {
       qualifyingHeats = [];
       const total = speedCars.length;
       if (total === 0) return;
       const heatCount = Math.ceil(total / 4);
 
+      // 1. 제 1차 주행: 1 -> 2 -> 3 -> 4 레인 순서 [0, 1, 2, 3]
       for (let h = 0; h < heatCount; h++) {
         const laneCars = [];
         for (let l = 0; l < 4; l++) {
           const idx = h * 4 + l;
           laneCars.push(idx < total ? speedCars[idx] : null);
         }
-        qualifyingHeats.push({ runType: 1, heatNum: h + 1, name: `제 ${h + 1} 조 (1차 주행)`, lanes: laneCars });
+        qualifyingHeats.push({ 
+          runType: 1, 
+          heatNum: h + 1, 
+          name: `제 ${h + 1} 조 (1차 주행)`, 
+          lanes: laneCars 
+        });
       }
+
+      // 2. 제 2차 주행: 2 -> 1 -> 4 -> 3 레인 순서로 자리 교체 (인덱스: [1, 0, 3, 2])
+      // (1레인↔2레인 교환, 3레인↔4레인 교환)
+      const swapOrder = [1, 0, 3, 2];
 
       for (let h = 0; h < heatCount; h++) {
         const laneCars = [];
         for (let l = 0; l < 4; l++) {
-          const idx = h * 4 + l;
+          const slot = swapOrder[l];
+          const idx = h * 4 + slot;
           laneCars.push(idx < total ? speedCars[idx] : null);
         }
-        qualifyingHeats.push({ runType: 2, heatNum: h + 1, name: `제 ${h + 1} 조 (2차 주행)`, lanes: laneCars });
+        qualifyingHeats.push({ 
+          runType: 2, 
+          heatNum: h + 1, 
+          name: `제 ${h + 1} 조 (2차 주행 - 레인 교체)`, 
+          lanes: laneCars 
+        });
       }
     }
 
@@ -473,17 +490,20 @@
       }
     }
 
+    // 결선 4인 레인 로테이션 편성: [1,2,3,4] -> [2,3,4,1] -> [3,4,1,2] -> [4,1,2,3]
     function initFinalHeats() {
       if (top4Finalists.length < 4) return;
       const [c1, c2, c3, c4] = top4Finalists;
+
       finalHeats = [
-        { runNum: 1, title: '결선 제 1차 주행', lanes: [c1, c2, c3, c4] },
-        { runNum: 2, title: '결선 제 2차 주행', lanes: [c2, c3, c4, c1] },
-        { runNum: 3, title: '결선 제 3차 주행', lanes: [c3, c4, c1, c2] },
-        { runNum: 4, title: '결선 제 4차 주행', lanes: [c4, c1, c2, c3] }
+        { runNum: 1, title: '결선 제 1차 주행 (1-2-3-4)', lanes: [c1, c2, c3, c4] },
+        { runNum: 2, title: '결선 제 2차 주행 (2-3-4-1)', lanes: [c2, c3, c4, c1] },
+        { runNum: 3, title: '결선 제 3차 주행 (3-4-1-2)', lanes: [c3, c4, c1, c2] },
+        { runNum: 4, title: '결선 제 4차 주행 (4-1-2-3)', lanes: [c4, c1, c2, c3] }
       ];
     }
 
+    
     function renderCurrentFinalHeat() {
       if (finalHeats.length === 0) initFinalHeats();
       const heat = finalHeats[currentFinalHeatIndex];
