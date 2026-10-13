@@ -207,12 +207,12 @@
   <script>    
     const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyF1IWFFfu3M_Gk65dGsJK9CiCndoov_Ja4cACOG8h1UgDVOgzJ0Ge507hVhdovMxSa/exec"; 
 
-    // 4색 테마 정의 (빨·파·초·노)
+    // 전광판 1번(왼쪽)~4번(오른쪽) 순서와 1:1 매칭
     const laneThemes = [
-      { label: '빨강', border: 'border-rose-400',    bg: 'bg-rose-50/70',    badge: 'bg-rose-500 text-white' },
-      { label: '파랑', border: 'border-blue-400',    bg: 'bg-blue-50/70',    badge: 'bg-blue-500 text-white' },
+      { label: '노랑', border: 'border-amber-400',   bg: 'bg-amber-50/70',   badge: 'bg-amber-500 text-white' },
       { label: '초록', border: 'border-emerald-400', bg: 'bg-emerald-50/70', badge: 'bg-emerald-600 text-white' },
-      { label: '노랑', border: 'border-amber-400',   bg: 'bg-amber-50/70',   badge: 'bg-amber-500 text-white' }
+      { label: '파랑', border: 'border-blue-400',    bg: 'bg-blue-50/70',    badge: 'bg-blue-500 text-white' },
+      { label: '빨강', border: 'border-rose-400',    bg: 'bg-rose-50/70',    badge: 'bg-rose-500 text-white' }
     ];
 
     let speedCars = [];
@@ -613,6 +613,7 @@
       const matches = rawText.match(/([A-D])\s*=\s*([0-9.]+)/g);
       if (!matches) return;
 
+      // A=노랑(1번), B=초록(2번), C=파랑(3번), D=빨강(4번)
       const laneMap = { 'A': 0, 'B': 1, 'C': 2, 'D': 3 };
       const isFinals = !document.getElementById('view-finals').classList.contains('hidden');
 
