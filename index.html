@@ -655,40 +655,42 @@
       }
     }
     
-  // 재경기 처리 (화면 인풋 비우기 + 하드웨어 타이머 전광판 리셋 송신)
-      async function handleRerun(stage) {
-        if (!confirm("이번 회차를 취소하고 재경기를 진행하시겠습니까?")) return;
-  
-        // 1. 화면 인풋 및 데이터셋 초기화
-        const isFinals = (stage === 'finals');
-        for (let i = 0; i < 4; i++) {
-          const inputId = isFinals ? `finalLaneInput_${i}` : `laneInput_${i}`;
-          const input = document.getElementById(inputId);
-          if (input) {
-            input.value = "";
-            delete input.dataset.fullTime;
-          }
+  // 재경기 처리 (안전한 송신 및 화면 초기화)
+    async function handleRerun(stage) {
+      if (!confirm("이번 회차를 취소하고 재경기를 진행하시겠습니까?")) return;
+
+      // 1. 화면 인풋 및 데이터셋 비우기
+      const isFinals = (stage === 'finals');
+      for (let i = 0; i < 4; i++) {
+        const inputId = isFinals ? `finalLaneInput_${i}` : `laneInput_${i}`;
+        const input = document.getElementById(inputId);
+        if (input) {
+          input.value = "";
+          delete input.dataset.fullTime;
         }
-  
-        // 2. 더비 매직 하드웨어 타이머로 리셋 커맨드 전송
-        if (serialPort && serialPort.writable) {
-          try {
-            const textEncoder = new TextEncoderStream();
-            const writableStreamClosed = textEncoder.readable.pipeTo(serialPort.writable);
-            const writer = textEncoder.writable.getWriter();
-  
-            // 더비 매직 표준 리셋 커맨드
-            await writer.write("R\r\n");
-            
-            await writer.close();
-            console.log("[Serial] 타이머 하드웨어 리셋 신호(R\\r\\n) 전송 완료");
-          } catch (err) {
-            console.warn("[Serial] 리셋 송신 중 경고:", err);
-          }
-        }
-  
-        showToast("기록이 취소되고 타이머가 리셋되었습니다. 다시 출발해 주세요!");
       }
+
+      // 2. 타이머 하드웨어로 안전하게 리셋 커맨드 전송
+      if (serialPort && serialPort.writable) {
+        let writer = null;
+        try {
+          writer = serialPort.writable.getWriter();
+          const encoder = new TextEncoder();
+          // 더비 매직 표준 리셋 바이트 전송 (R + CR + LF)
+          const data = encoder.encode("R\r\n");
+          await writer.write(data);
+          console.log("[Serial] 타이머 하드웨어 리셋 신호 전송 완료");
+        } catch (err) {
+          console.warn("[Serial] 리셋 송신 실패 (수신 모드 유지):", err);
+        } finally {
+          if (writer) {
+            writer.releaseLock(); // 락을 즉시 해제해야 포트가 잠기지 않음
+          }
+        }
+      }
+
+      showToast("기록이 취소되었습니다. 다시 출발해 주세요!");
+    }
 
     // 1. 타이머 연결 / 해제 메인 토글 함수
     async function connectTimerSerial() {
