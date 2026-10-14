@@ -690,30 +690,38 @@
       const reader = textDecoder.readable.getReader();
       let buffer = "";
   
-      while (true) {
+    while (true) {
         const { value, done } = await reader.read();
         if (done) break;
         if (value) {
           buffer += value;
-  
-          // DerbyMagic / FastTrack 형식 매칭: 예) 4=2.2672! 또는 1=2.9795$ 또는 A=2.267
-          const regex = /([1-4A-D])\s*=\s*([0-9]+\.[0-9]+)/g;
+          console.log("[Serial Raw Chunk]:", value);
+
+          // DerbyMagic / FastTrack 형식 매칭 (예: 4=2.2672! 또는 1=2.9795$)
+          const regex = /([1-4A-D])\s*=\s*([0-9]+\.[0-9]+)[^ ]*/g;
           let match;
-  
-          // 버퍼에 누적된 데이터 중 일치하는 레인 기록을 모두 추출
+          let lastIndex = 0;
+
           while ((match = regex.exec(buffer)) !== null) {
             const rawLane = match[1];
-            const time = parseFloat(match[2]).toFixed(3); // 소수점 3자리 정리
-            
-            // 기존 handleIncomingTimerString 또는 직접 레인 갱신 함수 호출
+            const time = parseFloat(match[2]).toFixed(3);
+            lastIndex = regex.lastIndex;
+
+            console.log(`[파싱 성공] 레인: ${rawLane}, 기록: ${time}`);
+
             if (typeof handleIncomingTimerString === 'function') {
               handleIncomingTimerString(`${rawLane}=${time}`);
             }
           }
-  
-          // 처리가 끝난 버퍼가 무한정 커지지 않도록 최근 100자만 유지
+
+          // 처리 완료된 앞부분 문자열 버퍼에서 제거
+          if (lastIndex > 0) {
+            buffer = buffer.slice(lastIndex);
+          }
+
+          // 버퍼 오버플로우 방지
           if (buffer.length > 200) {
-            buffer = buffer.slice(-100);
+            buffer = buffer.slice(-50);
           }
         }
       }
