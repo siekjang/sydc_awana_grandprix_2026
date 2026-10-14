@@ -39,6 +39,10 @@
         타이머 연결/해제
       </button>
 
+      <button onclick="resetHardwareTimer()" class="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-300 rounded-lg transition font-bold flex items-center gap-1 shadow-sm">
+        <span>타이머 리셋</span>
+      </button>
+
       <div class="h-4 w-px bg-slate-300 mx-1"></div>
 
       <!-- 탭 버튼 -->
@@ -651,20 +655,40 @@
       }
     }
     
-    // 재경기 처리
-    function handleRerun(stage) {
-      if (!confirm("이번 회차를 취소하고 재경기를 진행하시겠습니까?")) return;
-      const isFinals = (stage === 'finals');
-      for (let i = 0; i < 4; i++) {
-        const inputId = isFinals ? `finalLaneInput_${i}` : `laneInput_${i}`;
-        const input = document.getElementById(inputId);
-        if (input) {
-          input.value = "";
-          delete input.dataset.fullTime;
+  // 재경기 처리 (화면 인풋 비우기 + 하드웨어 타이머 전광판 리셋 송신)
+      async function handleRerun(stage) {
+        if (!confirm("이번 회차를 취소하고 재경기를 진행하시겠습니까?")) return;
+  
+        // 1. 화면 인풋 및 데이터셋 초기화
+        const isFinals = (stage === 'finals');
+        for (let i = 0; i < 4; i++) {
+          const inputId = isFinals ? `finalLaneInput_${i}` : `laneInput_${i}`;
+          const input = document.getElementById(inputId);
+          if (input) {
+            input.value = "";
+            delete input.dataset.fullTime;
+          }
         }
+  
+        // 2. 더비 매직 하드웨어 타이머로 리셋 커맨드 전송
+        if (serialPort && serialPort.writable) {
+          try {
+            const textEncoder = new TextEncoderStream();
+            const writableStreamClosed = textEncoder.readable.pipeTo(serialPort.writable);
+            const writer = textEncoder.writable.getWriter();
+  
+            // 더비 매직 표준 리셋 커맨드
+            await writer.write("R\r\n");
+            
+            await writer.close();
+            console.log("[Serial] 타이머 하드웨어 리셋 신호(R\\r\\n) 전송 완료");
+          } catch (err) {
+            console.warn("[Serial] 리셋 송신 중 경고:", err);
+          }
+        }
+  
+        showToast("기록이 취소되고 타이머가 리셋되었습니다. 다시 출발해 주세요!");
       }
-      showToast("기록이 취소되었습니다. 다시 출발해 주세요!");
-    }
 
     // 1. 타이머 연결 / 해제 메인 토글 함수
     async function connectTimerSerial() {
@@ -796,6 +820,40 @@
       }
     }
 
+    // 타이머 하드웨어로 리셋 커맨드 전송
+    async function resetHardwareTimer() {
+      // 1. 화면의 4개 레인 입력값 비우기
+      const isFinals = !document.getElementById('view-finals').classList.contains('hidden');
+      for (let i = 0; i < 4; i++) {
+        const inputId = isFinals ? `finalLaneInput_${i}` : `laneInput_${i}`;
+        const input = document.getElementById(inputId);
+        if (input) {
+          input.value = "";
+          delete input.dataset.fullTime;
+        }
+      }
+    
+      // 2. 하드웨어 타이머로 리셋 명령 송신
+      if (serialPort && serialPort.writable) {
+        try {
+          const textEncoder = new TextEncoderStream();
+          const writableStreamClosed = textEncoder.readable.pipeTo(serialPort.writable);
+          const writer = textEncoder.writable.getWriter();
+    
+          // DerbyMagic 표준 리셋 신호: 'R\r' 및 'C\r'
+          await writer.write("R\r\n");
+          
+          writer.releaseLock();
+          console.log("[Serial] 하드웨어 타이머 리셋 커맨드 전송 완료 (R\\r\\n)");
+          showToast("타이머가 리셋되었습니다.");
+        } catch (err) {
+          console.warn("[Serial] 리셋 신호 전송 실패:", err);
+          showToast("화면 기록이 초기화되었습니다.");
+        }
+      } else {
+        showToast("화면 기록이 초기화되었습니다. (타이머 미연결)");
+      }
+    }
     // 구글 시트 데이터 단일 동기화 함수
     async function syncFromGoogleSheets() {
       const syncEl = document.getElementById('syncStatusText');
