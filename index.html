@@ -663,64 +663,64 @@
       handleIncomingTimerString(`A=${t1} B=${t2} C=${t3} D=${t4}`);
     }
 
-// 시리얼 연결
-async function connectTimerSerial() {
-  if (!("serial" in navigator)) {
-    alert("이 브라우저는 Web Serial API를 지원하지 않습니다. Chrome을 사용해주세요.");
-    return;
-  }
-  try {
-    // 블루투스 표준 SPP / RFCOMM 서비스 ID 허용
-    serialPort = await navigator.serial.requestPort({
-      allowedBluetoothServiceClassIds: [
-        "00001101-0000-1000-8000-00805f9b34fb" // Bluetooth SPP
-      ]
-    });
-
-    await serialPort.open({ baudRate: 9600 });
-    const badge = document.getElementById('serialStatusBadge');
-    if (badge) {
-      badge.className = "px-3 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 flex items-center gap-1.5 transition font-bold";
-      badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span><span>타이머 연결됨</span>`;
+  // 시리얼 연결
+  async function connectTimerSerial() {
+    if (!("serial" in navigator)) {
+      alert("이 브라우저는 Web Serial API를 지원하지 않습니다. Chrome을 사용해주세요.");
+      return;
     }
-    showToast("하드웨어 타이머와 연결되었습니다!");
-
-    const textDecoder = new TextDecoderStream();
-    serialPort.readable.pipeTo(textDecoder.writable);
-    const reader = textDecoder.readable.getReader();
-    let buffer = "";
-
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      if (value) {
-        buffer += value;
-
-        // DerbyMagic / FastTrack 형식 매칭: 예) 4=2.2672! 또는 1=2.9795$ 또는 A=2.267
-        const regex = /([1-4A-D])\s*=\s*([0-9]+\.[0-9]+)/g;
-        let match;
-
-        // 버퍼에 누적된 데이터 중 일치하는 레인 기록을 모두 추출
-        while ((match = regex.exec(buffer)) !== null) {
-          const rawLane = match[1];
-          const time = parseFloat(match[2]).toFixed(3); // 소수점 3자리 정리
-          
-          // 기존 handleIncomingTimerString 또는 직접 레인 갱신 함수 호출
-          if (typeof handleIncomingTimerString === 'function') {
-            handleIncomingTimerString(`${rawLane}=${time}`);
+    try {
+      // 블루투스 표준 SPP / RFCOMM 서비스 ID 허용
+      serialPort = await navigator.serial.requestPort({
+        allowedBluetoothServiceClassIds: [
+          "00001101-0000-1000-8000-00805f9b34fb" // Bluetooth SPP
+        ]
+      });
+  
+      await serialPort.open({ baudRate: 9600 });
+      const badge = document.getElementById('serialStatusBadge');
+      if (badge) {
+        badge.className = "px-3 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 flex items-center gap-1.5 transition font-bold";
+        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span><span>타이머 연결됨</span>`;
+      }
+      showToast("하드웨어 타이머와 연결되었습니다!");
+  
+      const textDecoder = new TextDecoderStream();
+      serialPort.readable.pipeTo(textDecoder.writable);
+      const reader = textDecoder.readable.getReader();
+      let buffer = "";
+  
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        if (value) {
+          buffer += value;
+  
+          // DerbyMagic / FastTrack 형식 매칭: 예) 4=2.2672! 또는 1=2.9795$ 또는 A=2.267
+          const regex = /([1-4A-D])\s*=\s*([0-9]+\.[0-9]+)/g;
+          let match;
+  
+          // 버퍼에 누적된 데이터 중 일치하는 레인 기록을 모두 추출
+          while ((match = regex.exec(buffer)) !== null) {
+            const rawLane = match[1];
+            const time = parseFloat(match[2]).toFixed(3); // 소수점 3자리 정리
+            
+            // 기존 handleIncomingTimerString 또는 직접 레인 갱신 함수 호출
+            if (typeof handleIncomingTimerString === 'function') {
+              handleIncomingTimerString(`${rawLane}=${time}`);
+            }
+          }
+  
+          // 처리가 끝난 버퍼가 무한정 커지지 않도록 최근 100자만 유지
+          if (buffer.length > 200) {
+            buffer = buffer.slice(-100);
           }
         }
-
-        // 처리가 끝난 버퍼가 무한정 커지지 않도록 최근 100자만 유지
-        if (buffer.length > 200) {
-          buffer = buffer.slice(-100);
-        }
       }
+    } catch (err) {
+      console.error("시리얼 연결 취소/오류:", err);
     }
-  } catch (err) {
-    console.error("시리얼 연결 취소/오류:", err);
   }
-}
 
     // 구글 시트 데이터 단일 동기화 함수
     async function syncFromGoogleSheets() {
