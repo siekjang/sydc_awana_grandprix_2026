@@ -39,10 +39,6 @@
         타이머 연결/해제
       </button>
 
-      <button onclick="simulateTimerSignal()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg transition">
-        가상 테스트
-      </button>
-
       <div class="h-4 w-px bg-slate-300 mx-1"></div>
 
       <!-- 탭 버튼 -->
@@ -377,7 +373,7 @@
     function prevHeat() { if (currentHeatIndex > 0) { currentHeatIndex--; renderCurrentHeat(); } }
     function nextHeat() { if (currentHeatIndex < qualifyingHeats.length - 1) { currentHeatIndex++; renderCurrentHeat(); } }
 
-    // 예선 기록 저장 함수 (시트 전송 시 4자리 우선 참조 보강)
+    // 예선 기록 저장 함수
     async function saveCurrentHeat(goNext) {
       if (qualifyingHeats.length === 0) return;
       const heat = qualifyingHeats[currentHeatIndex];
@@ -389,7 +385,6 @@
         if (!input) return;
 
         const val = input.value.trim();
-        // 시트 전송용: 원본 4자리가 있으면 우선 사용, 없으면 입력값 사용
         const sendTime = (input.dataset && input.dataset.fullTime) ? input.dataset.fullTime : val;
 
         if (val !== '') {
@@ -537,7 +532,7 @@
     function prevFinalHeat() { if (currentFinalHeatIndex > 0) { currentFinalHeatIndex--; renderCurrentFinalHeat(); } }
     function nextFinalHeat() { if (currentFinalHeatIndex < 3) { currentFinalHeatIndex++; renderCurrentFinalHeat(); } }
 
-    // 결선 기록 저장 함수 (시트 전송 시 4자리 우선 참조 보강)
+    // 결선 기록 저장 함수
     async function saveCurrentFinalHeat(goNext) {
       if (finalHeats.length === 0) return;
       const heat = finalHeats[currentFinalHeatIndex];
@@ -620,26 +615,8 @@
       }
     }
 
-    // 센서 기록 수신 (화면: 3자리 절사 / 시트: 4자리 원본 보존 / 반전 및 9.0 DNF 처리 완벽 지원)
+    // 센서 기록 수신
     function handleIncomingTimerString(rawLane, displayTime, fullTime) {
-      // 단일 문자열로 넘어올 경우(가상 테스트 호환)
-      if (arguments.length === 1 && typeof rawLane === 'string') {
-        const matches = rawLane.match(/([1-4A-D])\s*=\s*([0-9.]+)/g);
-        if (matches) {
-          matches.forEach(m => {
-            const p = m.split("=");
-            const lane = p[0].trim();
-            const num = p[1].trim();
-            const dotParts = num.split('.');
-            const disp = dotParts.length > 1 ? `${dotParts[0]}.${dotParts[1].slice(0, 3)}` : num;
-            const full = parseFloat(num).toFixed(4);
-            handleIncomingTimerString(lane, disp, full);
-          });
-        }
-        return;
-      }
-
-      // 트랙 방향에 맞춘 좌우 반전 매핑 (1번<->4번, 2번<->3번)
       const laneMap = { 
         '1': 3, '2': 2, '3': 1, '4': 0,
         'A': 3, 'B': 2, 'C': 1, 'D': 0 
@@ -655,7 +632,6 @@
         const input = document.getElementById(inputId);
         
         if (input) {
-          // [타임아웃/미완주 처리]: 9.0초 이상(9.9999 등)은 DNF 처리로 빈칸 유지
           if (numericVal >= 9.0) {
             console.log(`[타임아웃(DNF) 제외] 레인 ${rawLane} (#${inputId}): ${displayTime}초 무시`);
             input.value = "";
@@ -663,9 +639,7 @@
             return;
           }
 
-          // 화면 표시: 3자리 절사값
           input.value = displayTime;
-          // 구글 시트 저장용: 4자리 보존값
           input.dataset.fullTime = fullTime;
 
           input.classList.add("sensor-flash");
@@ -690,15 +664,6 @@
         }
       }
       showToast("기록이 취소되었습니다. 다시 출발해 주세요!");
-    }
-
-    // 가상 테스트 트리거
-    function simulateTimerSignal() {
-      const t1 = (2.3 + Math.random() * 0.4).toFixed(4);
-      const t2 = (2.3 + Math.random() * 0.4).toFixed(4);
-      const t3 = (2.3 + Math.random() * 0.4).toFixed(4);
-      const t4 = (2.3 + Math.random() * 0.4).toFixed(4);
-      handleIncomingTimerString(`1=${t1} 2=${t2} 3=${t3} 4=${t4}`);
     }
 
     // 1. 타이머 연결 / 해제 메인 토글 함수
@@ -757,18 +722,15 @@
               const rawLane = match[1];
               const rawNum = match[2];
               lastIndex = regex.lastIndex;
-    
-              // 화면 표시용: 반올림 없는 소수점 3자리 절사
+
               const parts = rawNum.split('.');
               const displayTime = parts.length > 1 
                 ? `${parts[0]}.${parts[1].slice(0, 3)}` 
                 : rawNum;
-    
-              // 시트 전송용: 원본 4자리 보존
+
               const fullTime = parseFloat(rawNum).toFixed(4);
     
               console.log(`[파싱] 레인: ${rawLane} | 화면: ${displayTime}초 | 시트용: ${fullTime}초`);
-    
               handleIncomingTimerString(rawLane, displayTime, fullTime);
             }
     
@@ -818,7 +780,7 @@
       showToast("타이머 연결이 안전하게 해제되었습니다.");
     }
 
-    // 3. 상단 뱃지 UI 갱신 함수 (단일화)
+    // 3. 상단 뱃지 UI 갱신 함수
     function updateSerialBadge(isConnected) {
       const badge = document.getElementById('serialStatusBadge');
       if (!badge) return;
