@@ -682,102 +682,158 @@
       handleIncomingTimerString(`A=${t1} B=${t2} C=${t3} D=${t4}`);
     }
 
-    async function connectTimerSerial() {
-      if (!("serial" in navigator)) {
-        alert("이 브라우저는 Web Serial API를 지원하지 않습니다. Chrome을 사용해주세요.");
-        return;
-      }
-    
-      // 1. 이미 연결되어 있는 경우 -> 연결 해제 수행
-      if (serialPort) {
-        await disconnectTimerSerial();
-        return;
-      }
-    
-      // 2. 연결되어 있지 않은 경우 -> 포트 열기 수행
-      try {
-        serialPort = await navigator.serial.requestPort({
-          allowedBluetoothServiceClassIds: [
-            "00001101-0000-1000-8000-00805f9b34fb" // Bluetooth SPP
-          ]
-        });
-    
-        await serialPort.open({ baudRate: 9600 });
-        keepReading = true;
-    
-        // UI 뱃지 상태: 연결됨
-        updateSerialBadge(true);
+
+  // 1. 타이머 연결 / 해제 메인 토글 함수
+  async function connectTimerSerial() {
+    if (!("serial" in navigator)) {
+      alert("이 브라우저는 Web Serial API를 지원하지 않습니다. PC Chrome 브라우저를 사용해주세요.");
+      return;
+    }
+  
+    // 1-1. 이미 포트가 열려 있으면 -> 안전하게 연결 해제
+    if (serialPort) {
+      await disconnectTimerSerial();
+      return;
+    }
+  
+    // 1-2. 연결되어 있지 않은 경우 -> 포트 열기 및 리더 루프 시작
+    try {
+      serialPort = await navigator.serial.requestPort({
+        allowedBluetoothServiceClassIds: [
+          "00001101-0000-1000-8000-00805f9b34fb" // Bluetooth SPP (Standard Serial Port)
+        ]
+      });
+  
+      // 9600 보드레이트 기본 설정
+      await serialPort.open({ 
+        baudRate: 9600,
+        dataBits: 8,
+        stopBits: 1,
+        parity: "none"
+      });
+  
+      keepReading = true;
+  
+      // 포트가 갑작스럽게 뽑히거나 블루투스 전원이 꺼졌을 때 자동 감지
+      serialPort.addEventListener('disconnect', () => {
+        console.warn("[Serial] 하드웨어 장치 연결이 갑자기 끊어졌습니다.");
+        disconnectTimerSerial();
+      });
+  
+      // UI 상태 갱신
+      updateSerialBadge(true);
+      if (typeof showToast === 'function') {
         showToast("하드웨어 타이머와 연결되었습니다!");
-    
-        const textDecoder = new TextDecoderStream();
-        serialPort.readable.pipeTo(textDecoder.writable);
-        serialReader = textDecoder.readable.getReader();
-        let buffer = "";
-    
-        while (keepReading) {
-          const { value, done } = await serialReader.read();
-          if (done) break;
-          if (value) {
-            buffer += value;
-            console.log("[Serial Raw Chunk]:", value);
-    
-            // DerbyMagic / FastTrack 형식 매칭
-            const regex = /([1-4A-D])\s*=\s*([0-9]+\.[0-9]+)[^ ]*/g;
-            let match;
-            let lastIndex = 0;
-    
-            while ((match = regex.exec(buffer)) !== null) {
-              const rawLane = match[1];
-              const time = parseFloat(match[2]).toFixed(3);
-              lastIndex = regex.lastIndex;
-    
-              console.log(`[파싱 성공] 레인: ${rawLane}, 기록: ${time}`);
-    
-              if (typeof handleIncomingTimerString === 'function') {
-                handleIncomingTimerString(`${rawLane}=${time}`);
-              }
-            }
-    
-            if (lastIndex > 0) {
-              buffer = buffer.slice(lastIndex);
-            }
-    
-            if (buffer.length > 200) {
-              buffer = buffer.slice(-50);
+      }
+  
+      const textDecoder = new TextDecoderStream();
+      const readableStreamClosed = serialPort.readable.pipeTo(textDecoder.writable);
+      serialReader = textDecoder.readable.getReader();
+      let buffer = "";
+  
+      // 실시간 수신 및 버퍼 처리 루프
+      while (keepReading) {
+        const { value, done } = await serialReader.read();
+        if (done) break;
+  
+        if (value) {
+          buffer += value;
+          // console.log("[Serial Raw Chunk]:", value); // 디버깅용
+  
+          // DerbyMagic / FastTrack 형식 정규식 매칭 (예: 4=2.2672! 또는 1=2.9795$)
+          const regex = /([1-4A-D])\s*=\s*([0-9]+\.[0-9]+)[^ ]*/g;
+          let match;
+          let lastIndex = 0;
+  
+          while ((match = regex.exec(buffer)) !== null) {
+            const rawLane = match[1];
+            const rawNum = match[2]; // 원본 소수점 문자열
+            lastIndex = regex.lastIndex;
+  
+            // [화면 표시용]: 반올림 없는 소수점 3자리 절사 (예: "2.2672" -> "2.267")
+            const parts = rawNum.split('.');
+            const displayTime = parts.length > 1 
+              ? `${parts[0]}.${parts[1].slice(0, 3)}` 
+              : rawNum;
+  
+            // [시트 전송용]: 4자리 원본 보존
+            const fullTime = parseFloat(rawNum).toFixed(4);
+  
+            console.log(`[파싱] 레인: ${rawLane} | 화면표시: ${displayTime}초 | 시트용: ${fullTime}초`);
+  
+            // 화면 렌더링 함수 호출
+            if (typeof handleIncomingTimerString === 'function') {
+              handleIncomingTimerString(rawLane, displayTime, fullTime);
             }
           }
+  
+          // 정상 처리된 문자열은 버퍼 앞단에서 슬라이스 (중복 파싱 방지)
+          if (lastIndex > 0) {
+            buffer = buffer.slice(lastIndex);
+          }
+  
+          // 쓰레기 데이터나 미완성 데이터로 버퍼 오버플로우 방지
+          if (buffer.length > 200) {
+            buffer = buffer.slice(-60);
+          }
         }
-      } catch (err) {
-        console.error("시리얼 연결 오류:", err);
-        await disconnectTimerSerial();
       }
+  
+      await readableStreamClosed.catch(() => {});
+    } catch (err) {
+      if (err.name === 'NotFoundError') {
+        console.log("[Serial] 사용자가 포트 선택을 취소했습니다.");
+      } else {
+        console.error("[Serial] 시리얼 통신 에러 발생:", err);
+        if (typeof showToast === 'function') {
+          showToast("시리얼 연결 중 오류가 발생했습니다.");
+        }
+      }
+      await disconnectTimerSerial();
     }
-
-    // 타이머 연결 안전 종료 함수
-    async function disconnectTimerSerial() {
-      keepReading = false;
-    
-      try {
-        if (serialReader) {
-          await serialReader.cancel();
-          serialReader.releaseLock();
-          serialReader = null;
-        }
-        if (serialPort) {
-          await serialPort.close();
-          serialPort = null;
-        }
-      } catch (err) {
-        console.warn("포트 닫기 중 경고:", err);
-        serialPort = null;
+  }
+  
+  // 2. 타이머 연결 안전 종료 함수 (리더 해제 및 포트 클로즈)
+  async function disconnectTimerSerial() {
+    keepReading = false;
+  
+    try {
+      if (serialReader) {
+        await serialReader.cancel();
+        serialReader.releaseLock();
         serialReader = null;
       }
-    
-      // UI 뱃지 상태: 연결 해제됨
-      updateSerialBadge(false);
-      showToast("타이머 연결이 해제되었습니다.");
+      if (serialPort) {
+        await serialPort.close();
+        serialPort = null;
+      }
+    } catch (err) {
+      console.warn("[Serial] 포트 닫기 중 잔여 에러 (무시 가능):", err);
+      serialPort = null;
+      serialReader = null;
     }
-    
+  
+    updateSerialBadge(false);
+    if (typeof showToast === 'function') {
+      showToast("타이머 연결이 안전하게 해제되었습니다.");
+    }
+  }
+
+// 3. 상단 뱃지 UI 갱신 함수
+function updateSerialBadge(isConnected) {
+  const badge = document.getElementById('serialStatusBadge');
+  if (!badge) return;
+
+  if (isConnected) {
+    badge.className = "px-3 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 flex items-center gap-1.5 transition font-bold cursor-pointer hover:bg-emerald-100 shadow-sm";
+    badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span><span>타이머 연결됨 (클릭시 해제)</span>`;
+    badge.title = "클릭하면 타이머 연결을 종료합니다.";
+  } else {
+    badge.className = "px-3 py-1.5 rounded-lg border border-gray-300 bg-gray-50 text-gray-600 flex items-center gap-1.5 transition font-medium cursor-pointer hover:bg-gray-100";
+    badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-gray-400"></span><span>타이머 연결</span>`;
+    badge.title = "블루투스 타이머에 연결합니다.";
+  }
+}
     // 상단 뱃지 UI 갱신 함수
     function updateSerialBadge(isConnected) {
       const badge = document.getElementById('serialStatusBadge');
