@@ -655,11 +655,11 @@
       }
     }
     
-  // 재경기 처리 (안전한 송신 및 화면 초기화)
+    // 재경기 처리: 기존 단일 serialPort를 통해 리셋 신호 송신
     async function handleRerun(stage) {
       if (!confirm("이번 회차를 취소하고 재경기를 진행하시겠습니까?")) return;
-
-      // 1. 화면 인풋 및 데이터셋 비우기
+    
+      // 1. 화면 인풋 비우기
       const isFinals = (stage === 'finals');
       for (let i = 0; i < 4; i++) {
         const inputId = isFinals ? `finalLaneInput_${i}` : `laneInput_${i}`;
@@ -669,26 +669,28 @@
           delete input.dataset.fullTime;
         }
       }
-
-      // 2. 타이머 하드웨어로 안전하게 리셋 커맨드 전송
+    
+      // 2. 이미 열려 있는 단일 serialPort의 writable 스트림 사용
       if (serialPort && serialPort.writable) {
         let writer = null;
         try {
+          // 별도 포트 오픈 없이 기존 포트에서 writer만 획득
           writer = serialPort.writable.getWriter();
           const encoder = new TextEncoder();
-          // 더비 매직 표준 리셋 바이트 전송 (R + CR + LF)
-          const data = encoder.encode("R\r\n");
-          await writer.write(data);
-          console.log("[Serial] 타이머 하드웨어 리셋 신호 전송 완료");
+          
+          // DerbyMagic 표준 리셋 바이트 (R\r\n) 송신
+          await writer.write(encoder.encode("R\r\n"));
+          console.log("[Serial] 동일 포트로 타이머 리셋(R) 송신 완료");
         } catch (err) {
-          console.warn("[Serial] 리셋 송신 실패 (수신 모드 유지):", err);
+          console.warn("[Serial] 리셋 송신 실패 (하드웨어 수신 전용 모드 가능성):", err);
         } finally {
+          // 반드시 즉시 락을 풀어주어야 단일 포트 스트림이 유지됨
           if (writer) {
-            writer.releaseLock(); // 락을 즉시 해제해야 포트가 잠기지 않음
+            writer.releaseLock();
           }
         }
       }
-
+    
       showToast("기록이 취소되었습니다. 다시 출발해 주세요!");
     }
 
