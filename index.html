@@ -224,7 +224,10 @@
     let qualifyingHeats = [];
     let currentFinalHeatIndex = 0;
     let finalHeats = [];
+
     let serialPort = null;
+    let serialReader = null;
+    let keepReading = false;
 
     // Toast 안내 메시지
     function showToast(msg) {
@@ -679,72 +682,115 @@
       handleIncomingTimerString(`A=${t1} B=${t2} C=${t3} D=${t4}`);
     }
 
-  // 시리얼 연결
-  async function connectTimerSerial() {
-    if (!("serial" in navigator)) {
-      alert("이 브라우저는 Web Serial API를 지원하지 않습니다. Chrome을 사용해주세요.");
-      return;
-    }
-    try {
-      // 블루투스 표준 SPP / RFCOMM 서비스 ID 허용
-      serialPort = await navigator.serial.requestPort({
-        allowedBluetoothServiceClassIds: [
-          "00001101-0000-1000-8000-00805f9b34fb" // Bluetooth SPP
-        ]
-      });
-  
-      await serialPort.open({ baudRate: 9600 });
-      const badge = document.getElementById('serialStatusBadge');
-      if (badge) {
-        badge.className = "px-3 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 flex items-center gap-1.5 transition font-bold";
-        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span><span>타이머 연결됨</span>`;
+    async function connectTimerSerial() {
+      if (!("serial" in navigator)) {
+        alert("이 브라우저는 Web Serial API를 지원하지 않습니다. Chrome을 사용해주세요.");
+        return;
       }
-      showToast("하드웨어 타이머와 연결되었습니다!");
-  
-      const textDecoder = new TextDecoderStream();
-      serialPort.readable.pipeTo(textDecoder.writable);
-      const reader = textDecoder.readable.getReader();
-      let buffer = "";
-  
-    while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        if (value) {
-          buffer += value;
-          console.log("[Serial Raw Chunk]:", value);
-
-          // DerbyMagic / FastTrack 형식 매칭 (예: 4=2.2672! 또는 1=2.9795$)
-          const regex = /([1-4A-D])\s*=\s*([0-9]+\.[0-9]+)[^ ]*/g;
-          let match;
-          let lastIndex = 0;
-
-          while ((match = regex.exec(buffer)) !== null) {
-            const rawLane = match[1];
-            const time = parseFloat(match[2]).toFixed(3);
-            lastIndex = regex.lastIndex;
-
-            console.log(`[파싱 성공] 레인: ${rawLane}, 기록: ${time}`);
-
-            if (typeof handleIncomingTimerString === 'function') {
-              handleIncomingTimerString(`${rawLane}=${time}`);
+    
+      // 1. 이미 연결되어 있는 경우 -> 연결 해제 수행
+      if (serialPort) {
+        await disconnectTimerSerial();
+        return;
+      }
+    
+      // 2. 연결되어 있지 않은 경우 -> 포트 열기 수행
+      try {
+        serialPort = await navigator.serial.requestPort({
+          allowedBluetoothServiceClassIds: [
+            "00001101-0000-1000-8000-00805f9b34fb" // Bluetooth SPP
+          ]
+        });
+    
+        await serialPort.open({ baudRate: 9600 });
+        keepReading = true;
+    
+        // UI 뱃지 상태: 연결됨
+        updateSerialBadge(true);
+        showToast("하드웨어 타이머와 연결되었습니다!");
+    
+        const textDecoder = new TextDecoderStream();
+        serialPort.readable.pipeTo(textDecoder.writable);
+        serialReader = textDecoder.readable.getReader();
+        let buffer = "";
+    
+        while (keepReading) {
+          const { value, done } = await serialReader.read();
+          if (done) break;
+          if (value) {
+            buffer += value;
+            console.log("[Serial Raw Chunk]:", value);
+    
+            // DerbyMagic / FastTrack 형식 매칭
+            const regex = /([1-4A-D])\s*=\s*([0-9]+\.[0-9]+)[^ ]*/g;
+            let match;
+            let lastIndex = 0;
+    
+            while ((match = regex.exec(buffer)) !== null) {
+              const rawLane = match[1];
+              const time = parseFloat(match[2]).toFixed(3);
+              lastIndex = regex.lastIndex;
+    
+              console.log(`[파싱 성공] 레인: ${rawLane}, 기록: ${time}`);
+    
+              if (typeof handleIncomingTimerString === 'function') {
+                handleIncomingTimerString(`${rawLane}=${time}`);
+              }
+            }
+    
+            if (lastIndex > 0) {
+              buffer = buffer.slice(lastIndex);
+            }
+    
+            if (buffer.length > 200) {
+              buffer = buffer.slice(-50);
             }
           }
-
-          // 처리 완료된 앞부분 문자열 버퍼에서 제거
-          if (lastIndex > 0) {
-            buffer = buffer.slice(lastIndex);
-          }
-
-          // 버퍼 오버플로우 방지
-          if (buffer.length > 200) {
-            buffer = buffer.slice(-50);
-          }
         }
+      } catch (err) {
+        console.error("시리얼 연결 오류:", err);
+        await disconnectTimerSerial();
       }
-    } catch (err) {
-      console.error("시리얼 연결 취소/오류:", err);
     }
-  }
+
+    // 타이머 연결 안전 종료 함수
+    async function disconnectTimerSerial() {
+      keepReading = false;
+    
+      try {
+        if (serialReader) {
+          await serialReader.cancel();
+          serialReader.releaseLock();
+          serialReader = null;
+        }
+        if (serialPort) {
+          await serialPort.close();
+          serialPort = null;
+        }
+      } catch (err) {
+        console.warn("포트 닫기 중 경고:", err);
+        serialPort = null;
+        serialReader = null;
+      }
+    
+      // UI 뱃지 상태: 연결 해제됨
+      updateSerialBadge(false);
+      showToast("타이머 연결이 해제되었습니다.");
+    }
+    
+    // 상단 뱃지 UI 갱신 함수
+    function updateSerialBadge(isConnected) {
+      const badge = document.getElementById('serialStatusBadge');
+      if (!badge) return;
+    
+      if (isConnected) {
+        badge.className = "px-3 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 flex items-center gap-1.5 transition font-bold cursor-pointer";
+        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span><span>타이머 연결됨 (클릭시 해제)</span>`;
+      } else {
+        badge.className = "px-3 py-1.5 rounded-lg border border-gray-300 bg-gray-50 text-gray-600 flex items-center gap-1.5 transition font-medium cursor-pointer";
+        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-gray-400"></span><span>타이머 연결</span>`;
+      }
+    }
 
     // 구글 시트 데이터 단일 동기화 함수
     async function syncFromGoogleSheets() {
