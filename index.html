@@ -1,57 +1,773 @@
-// 시리얼 수신 처리 함수
-async function readSerialData(port) {
-  const textDecoder = new TextDecoderStream();
-  port.readable.pipeTo(textDecoder.writable);
-  const reader = textDecoder.readable.getReader();
-  
-  let buffer = "";
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2026 서울영동 어와나 그랑프리 레이스 매니저</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @keyframes yellow-flash {
+      0%, 100% { background-color: #ffffff; }
+      50% { background-color: #fef08a; }
+    }
+    .sensor-flash {
+      animation: yellow-flash 0.9s ease-in-out;
+    }
+  </style>
+</head>
 
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col font-sans">
+  <!-- 상단 화이트 헤더 -->
+  <header class="bg-white border-b border-slate-200 px-6 py-4 shadow-sm flex flex-wrap justify-between items-center gap-4">
+    <div class="flex items-center gap-3">
+      <div class="w-3 h-7 bg-indigo-600 rounded-sm"></div>
+      <div>
+        <h1 class="text-xl font-black text-slate-900 tracking-tight">AWANA GRAND PRIX 2026</h1>
+        <p class="text-xs text-slate-500 font-medium">서울영동교회 어와나 그랑프리 경기 운영 시스템</p>
+      </div>
+    </div>
+
+    <!-- 헤더 우측 버튼군 -->
+    <div class="flex items-center flex-wrap gap-2 text-xs font-semibold">
+      <!-- 타이머 상태 뱃지 -->
+      <span id="serialStatusBadge" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-500 flex items-center gap-1.5 transition">
+        <span class="w-2 h-2 rounded-full bg-slate-400"></span>
+        <span>타이머 미연결</span>
+      </span>
+
+      <button onclick="connectTimerSerial()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg transition">
+        타이머 연결
+      </button>
+
+      <button onclick="simulateTimerSignal()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg transition">
+        가상 테스트
+      </button>
+
+      <div class="h-4 w-px bg-slate-300 mx-1"></div>
+
+      <!-- 탭 버튼 -->
+      <button id="tabBtn-qualifying" onclick="switchTab('qualifying')" class="px-3.5 py-1.5 bg-slate-900 text-white rounded-lg shadow-sm transition">
+        예선 레이스
+      </button>
+      <button id="tabBtn-finals" onclick="switchTab('finals')" class="px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-600 rounded-lg border border-slate-200 transition">
+        결선 레이스 (4회)
+      </button>
+      <button onclick="runTop4Sync()" class="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg transition">
+        결선 진출 발표
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 mt-6 space-y-6 flex-1">
+
+    <!-- 1. 예선전 화면 -->
+    <section id="view-qualifying" class="space-y-6">
+      
+      <!-- 상단 조 컨트롤 바 -->
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <span class="text-xs text-slate-400 font-bold block">현재 경기 회차 (예선)</span>
+          <div class="flex items-center gap-3 mt-1">
+            <h2 id="heatTitle" class="text-2xl font-black text-slate-900">제 1 조 (1차 주행)</h2>
+            <span id="heatLaneOrderBadge" class="px-2.5 py-0.5 bg-slate-100 text-slate-700 font-mono text-xs rounded-lg border border-slate-300 font-bold">
+              빨강 - 파랑 - 초록 - 노랑
+            </span>
+          </div>
+        </div>
+
+        <div class="flex items-center flex-wrap gap-2">
+          <button onclick="handleRerun('qualifying')" class="px-3 sm:px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 font-extrabold rounded-xl text-xs sm:text-sm transition flex items-center gap-1 shadow-sm">
+            재경기 (기록 취소)
+          </button>
+          <button onclick="prevHeat()" class="px-3 sm:px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs sm:text-sm transition">
+            이전 경기
+          </button>
+          <span id="heatIndicator" class="font-mono font-extrabold text-sm px-3 text-slate-600">1 / 1</span>
+          <button onclick="nextHeat()" class="px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs sm:text-sm shadow transition">
+            다음 경기
+          </button>
+        </div>
+      </div>
+
+      <!-- 4개 레인 실시간 카드 그리드 (빨·파·초·노) -->
+      <div id="laneGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"></div>
+
+      <!-- 기록 저장 및 이동 바 -->
+      <div class="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+        <span id="syncStatusText" class="text-xs text-slate-500 font-semibold">데이터 준비 완료</span>
+        <div class="flex items-center gap-3">
+          <button onclick="saveCurrentHeat(false)" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl transition">
+            기록 저장
+          </button>
+          <button onclick="saveCurrentHeat(true)" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold rounded-xl shadow transition flex items-center gap-1">
+            <span>저장 후 다음 레이스 ➔</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 전체 예선 집계표 -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+        <div class="flex justify-between items-center">
+          <div>
+            <h3 class="font-bold text-base text-slate-800">전체 예선 경기 실시간 집계표</h3>
+            <p class="text-xs text-slate-400">구글 시트에 저장된 기록이 실시간으로 반영됩니다.</p>
+          </div>
+          <button onclick="syncFromGoogleSheets()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition">
+            시트 데이터 동기화
+          </button>
+        </div>
+        <div class="overflow-x-auto max-h-96">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead class="bg-slate-50 sticky top-0 text-slate-600 font-bold border-b border-slate-200">
+              <tr>
+                <th class="p-3">차량번호</th>
+                <th class="p-3">부서</th>
+                <th class="p-3">이름</th>
+                <th class="p-3 text-center">예선 1차 (초)</th>
+                <th class="p-3 text-center">예선 2차 (초)</th>
+                <th class="p-3 text-center text-blue-600">최고기록 (MIN)</th>
+                <th class="p-3 text-center">상태</th>
+              </tr>
+            </thead>
+            <tbody id="qualifyingTableBody" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. 결선전 화면 -->
+    <section id="view-finals" class="hidden space-y-6">
+      <div class="bg-white p-5 rounded-2xl border border-amber-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <span class="text-xs text-amber-600 font-bold block">최종 결선 레이스 (레인 로테이션 주행)</span>
+          <div class="flex items-center gap-3 mt-1">
+            <h2 id="finalHeatTitle" class="text-2xl font-black text-slate-900">결선 제 1차 주행</h2>
+            <span id="finalHeatOrderBadge" class="px-2.5 py-0.5 bg-amber-50 text-amber-800 font-mono text-xs rounded-lg border border-amber-300 font-bold">
+              빨강 - 파랑 - 초록 - 노랑
+            </span>
+          </div>
+        </div>
+
+        <div class="flex items-center flex-wrap gap-2">
+          <button onclick="handleRerun('finals')" class="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 font-bold rounded-xl text-xs sm:text-sm transition flex items-center gap-1 shadow-sm">
+            재경기 (기록 취소)
+          </button>
+          <button onclick="prevFinalHeat()" class="px-3 sm:px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs sm:text-sm transition">
+            이전 시기
+          </button>
+          <span id="finalHeatIndicator" class="font-mono font-extrabold text-sm px-3 text-slate-600">1 / 4</span>
+          <button onclick="nextFinalHeat()" class="px-3 sm:px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs sm:text-sm shadow transition">
+            다음 시기
+          </button>
+        </div>
+      </div>
+
+      <!-- 4개 레인 실시간 카드 그리드 (결선) -->
+      <div id="finalLaneGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"></div>
+
+      <div class="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+        <span class="text-xs text-slate-400 font-medium">결선은 4색 레인을 1회씩 순환하여 총 4회 주행합니다.</span>
+        <div class="flex items-center gap-3">
+          <button onclick="saveCurrentFinalHeat(false)" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl transition">
+            결선 기록 저장
+          </button>
+          <button onclick="saveCurrentFinalHeat(true)" class="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-xs sm:text-sm font-bold rounded-xl shadow transition flex items-center gap-1">
+            <span>저장 후 다음 시기 ➔</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 결선 최종 순위 현황 표 -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+        <h3 class="font-bold text-base text-slate-800">결선 4인 최종 순위 현황</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead class="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+              <tr>
+                <th class="p-3 text-center">순위</th>
+                <th class="p-3 text-center">차량번호</th>
+                <th class="p-3 text-center">이름</th>
+                <th class="p-3 text-center">1차 시기 (초)</th>
+                <th class="p-3 text-center">2차 시기 (초)</th>
+                <th class="p-3 text-center">3차 시기 (초)</th>
+                <th class="p-3 text-center">4차 시기 (초)</th>
+                <th class="p-3 text-center text-amber-600 font-bold">최고기록 (MIN)</th>
+              </tr>
+            </thead>
+            <tbody id="finalsSummaryBody" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <div id="toastBox" class="fixed bottom-6 right-6 z-50 pointer-events-none space-y-2"></div>
+
+  <script>    
+    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyF1IWFFfu3M_Gk65dGsJK9CiCndoov_Ja4cACOG8h1UgDVOgzJ0Ge507hVhdovMxSa/exec"; 
+
+    // 전광판 1번(왼쪽)~4번(오른쪽) 순서와 1:1 매칭
+    const laneThemes = [
+      { label: '노랑', border: 'border-amber-400',   bg: 'bg-amber-50/70',   badge: 'bg-amber-500 text-white' },
+      { label: '초록', border: 'border-emerald-400', bg: 'bg-emerald-50/70', badge: 'bg-emerald-600 text-white' },
+      { label: '파랑', border: 'border-blue-400',    bg: 'bg-blue-50/70',    badge: 'bg-blue-500 text-white' },
+      { label: '빨강', border: 'border-rose-400',    bg: 'bg-rose-50/70',    badge: 'bg-rose-500 text-white' }
+    ];
+
+    let speedCars = [];
+    let carRecords = {};
+    let finalRecords = {};
+    let top4Finalists = [];    
+
+    let currentHeatIndex = 0;
+    let qualifyingHeats = [];
+    let currentFinalHeatIndex = 0;
+    let finalHeats = [];
+    let serialPort = null;
+
+    // Toast 안내 메시지
+    function showToast(msg) {
+      const box = document.getElementById('toastBox');
+      const toast = document.createElement('div');
+      toast.className = "bg-slate-800 text-white text-xs px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 transition-all duration-300";
+      toast.textContent = msg;
+      box.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    // 탭 전환 (화이트 모드 기준)
+    function switchTab(tab) {
+      if (tab === 'qualifying') {
+        document.getElementById('view-qualifying').classList.remove('hidden');
+        document.getElementById('view-finals').classList.add('hidden');
+        document.getElementById('tabBtn-qualifying').className = "px-3.5 py-1.5 bg-slate-900 text-white font-bold rounded-lg shadow-sm transition";
+        document.getElementById('tabBtn-finals').className = "px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-600 font-medium rounded-lg border border-slate-200 transition";
+      } else {
+        document.getElementById('view-qualifying').classList.add('hidden');
+        document.getElementById('view-finals').classList.remove('hidden');
+        document.getElementById('tabBtn-finals').className = "px-3.5 py-1.5 bg-slate-900 text-white font-bold rounded-lg shadow-sm transition";
+        document.getElementById('tabBtn-qualifying').className = "px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-600 font-medium rounded-lg border border-slate-200 transition";
+        renderCurrentFinalHeat();
+      }
+    }
+
+    // 1. 예선 조 편성: 빨강(맨 오른쪽)에 1번 선수가 오도록 순서 매핑
+   // 1. 예선 조 편성: 바깥 1회 + 안쪽 1회 공정 교차 주행
+    function initDynamicHeats() {
+      qualifyingHeats = [];
+      const total = speedCars.length;
+      if (total === 0) return;
+      const heatCount = Math.ceil(total / 4);
+
+      // 1차 주행: [노랑(바깥): 3, 초록(안): 2, 파랑(안): 1, 빨강(바깥): 0]
+      // 결과: 맨 오른쪽 빨강 레인에 첫 번째 번호(#1 변하영) 배치
+      const run1Order = [3, 2, 1, 0];
+
+      for (let h = 0; h < heatCount; h++) {
+        const laneCars = [];
+        for (let l = 0; l < 4; l++) {
+          const idx = h * 4 + run1Order[l];
+          laneCars.push(idx < total ? speedCars[idx] : null);
+        }
+        qualifyingHeats.push({ 
+          runType: 1, 
+          heatNum: h + 1, 
+          name: `제 ${h + 1} 조 (1차 주행)`, 
+          lanes: laneCars 
+        });
+      }
+
+      // 2차 주행 (바깥 ↔ 안쪽 완전 교차):
+      // [노랑(바깥): 1, 초록(안): 0, 파랑(안): 3, 빨강(바깥): 2]
+      const run2Order = [1, 0, 3, 2];
+
+      for (let h = 0; h < heatCount; h++) {
+        const laneCars = [];
+        for (let l = 0; l < 4; l++) {
+          const idx = h * 4 + run2Order[l];
+          laneCars.push(idx < total ? speedCars[idx] : null);
+        }
+        qualifyingHeats.push({ 
+          runType: 2, 
+          heatNum: h + 1, 
+          name: `제 ${h + 1} 조 (2차 주행 - 안팎 교체)`, 
+          lanes: laneCars 
+        });
+      }
+    }
+
+    // 예선 카드 렌더링
+    function renderCurrentHeat() {
+      if (qualifyingHeats.length === 0) return;
+      const heat = qualifyingHeats[currentHeatIndex];
+
+      document.getElementById('heatTitle').innerText = heat.name;
+      document.getElementById('heatIndicator').innerText = `${currentHeatIndex + 1} / ${qualifyingHeats.length}`;
+
+      const grid = document.getElementById('laneGrid');
+      grid.innerHTML = '';
+
+      heat.lanes.forEach((car, idx) => {
+        const t = laneThemes[idx];
+        const card = document.createElement('div');
+        card.className = `p-5 rounded-2xl border-2 ${t.border} ${t.bg} bg-white shadow-sm flex flex-col justify-between space-y-4 transition`;
+
+        const isCarPresent = !!car;
+        const carIdText = isCarPresent ? `#${car.id}` : '-';
+        const carNameText = isCarPresent ? car.name : '빈 레인';
+        const deptText = isCarPresent ? (car.dept || '') : '';
+
+        // 기존 저장된 기록 가져오기
+        const rKey = `run${heat.runType}`;
+        const existing = (isCarPresent && carRecords[car.id] && carRecords[car.id][rKey]) ? carRecords[car.id][rKey] : '';
+
+        card.innerHTML = `
+          <div class="flex justify-between items-center">
+            <span class="px-2.5 py-1 rounded-md text-xs font-black tracking-wide ${t.badge}">${t.label}</span>
+            <span class="text-xs text-slate-400 font-semibold">${deptText}</span>
+          </div>
+          <div>
+            <div class="text-2xl font-black text-slate-900 font-mono tracking-tight">
+              ${carIdText} <span class="text-slate-800 font-sans ml-1 text-xl">${carNameText}</span>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-500 font-semibold mb-1">기록 (초)</label>
+            <input type="number" step="0.001" id="laneInput_${idx}" value="${existing !== '' ? existing : ''}" 
+              placeholder="0.000" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-center text-3xl font-black font-mono text-slate-900 focus:outline-none focus:border-slate-800 focus:bg-white focus:ring-1 focus:ring-slate-800 transition">
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+
+      renderQualifyingTable();
+    }
+
+    // 예선 테이블 렌더링
+    function renderQualifyingTable() {
+      const tbody = document.getElementById('qualifyingTableBody');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+
+      speedCars.forEach(car => {
+        const rec = carRecords[car.id] || { run1: '', run2: '' };
+        const r1 = (rec.run1 !== '' && !isNaN(rec.run1)) ? parseFloat(rec.run1) : null;
+        const r2 = (rec.run2 !== '' && !isNaN(rec.run2)) ? parseFloat(rec.run2) : null;
+
+        let best = '-';
+        if (r1 !== null && r2 !== null) best = Math.min(r1, r2).toFixed(3);
+        else if (r1 !== null) best = r1.toFixed(3);
+        else if (r2 !== null) best = r2.toFixed(3);
+
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50 transition border-b border-slate-100";
+        tr.innerHTML = `
+          <td class="p-3 font-mono font-bold text-slate-900">#${car.id}</td>
+          <td class="p-3 text-slate-500">${car.dept}</td>
+          <td class="p-3 font-bold text-slate-800">${car.name}</td>
+          <td class="p-3 text-center font-mono ${r1 ? 'font-bold text-slate-800' : 'text-slate-400'}">${r1 ? r1.toFixed(3) : '-'}</td>
+          <td class="p-3 text-center font-mono ${r2 ? 'font-bold text-slate-800' : 'text-slate-400'}">${r2 ? r2.toFixed(3) : '-'}</td>
+          <td class="p-3 text-center font-mono font-black text-blue-600">${best}</td>
+          <td class="p-3 text-center text-xs">
+            ${(r1 && r2) ? '<span class="text-emerald-600 font-bold">완료</span>' : '<span class="text-slate-400">대기</span>'}
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function prevHeat() { if (currentHeatIndex > 0) { currentHeatIndex--; renderCurrentHeat(); } }
+    function nextHeat() { if (currentHeatIndex < qualifyingHeats.length - 1) { currentHeatIndex++; renderCurrentHeat(); } }
+
+    // 예선 기록 저장 함수
+    async function saveCurrentHeat(goNext) {
+      if (qualifyingHeats.length === 0) return;
+      const heat = qualifyingHeats[currentHeatIndex];
+      const payload = [];
+
+      heat.lanes.forEach((car, idx) => {
+        if (!car) return;
+        const val = document.getElementById(`laneInput_${idx}`).value.trim();
+        if (val !== '') {
+          if (!carRecords[car.id]) carRecords[car.id] = { run1: '', run2: '' };
+          if (heat.runType === 1) carRecords[car.id].run1 = val;
+          if (heat.runType === 2) carRecords[car.id].run2 = val;
+
+          payload.push({ carId: car.id, runType: heat.runType, time: val });
+        }
+      });
+
+      renderQualifyingTable();
+      showToast(`${heat.name} 기록 저장 중...`);
+
+      try {
+        if (typeof google !== 'undefined' && google.script && google.script.run) {
+          google.script.run
+            .withSuccessHandler(() => showToast("구글 시트에 저장 완료!"))
+            .doPost({ postData: { contents: JSON.stringify({ action: "saveHeat", data: payload }) } });
+        } else if (GAS_API_URL && !GAS_API_URL.includes("...")) {
+          await fetch(GAS_API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain" },
+            body: JSON.stringify({ action: "saveHeat", data: payload })
+          });
+          showToast("구글 시트에 저장 완료!");
+        }
+      } catch (e) {
+        console.error("저장 오류:", e);
+      }
+
+      if (goNext && currentHeatIndex < qualifyingHeats.length - 1) {
+        currentHeatIndex++;
+        renderCurrentHeat();
+      }
+    }
+
+    // 2. 결선 조 편성 (레인 로테이션: 1234 -> 2341 -> 3412 -> 4123)
+    function initFinalHeats() {
+      if (top4Finalists.length < 4) return;
+      const [c1, c2, c3, c4] = top4Finalists;
+      finalHeats = [
+        { runNum: 1, title: '결선 제 1차 주행 (빨·파·초·노)', lanes: [c1, c2, c3, c4] },
+        { runNum: 2, title: '결선 제 2차 주행 (파·초·노·빨)', lanes: [c2, c3, c4, c1] },
+        { runNum: 3, title: '결선 제 3차 주행 (초·노·빨·파)', lanes: [c3, c4, c1, c2] },
+        { runNum: 4, title: '결선 제 4차 주행 (노·빨·파·초)', lanes: [c4, c1, c2, c3] }
+      ];
+    }
+
+    // 결선 카드 렌더링
+    function renderCurrentFinalHeat() {
+      if (finalHeats.length === 0) initFinalHeats();
+      if (finalHeats.length === 0) return;
+      const heat = finalHeats[currentFinalHeatIndex];
+
+      document.getElementById('finalHeatTitle').innerText = heat.title;
+      document.getElementById('finalHeatIndicator').innerText = `${currentFinalHeatIndex + 1} / 4`;
+
+      const grid = document.getElementById('finalLaneGrid');
+      grid.innerHTML = '';
+
+      heat.lanes.forEach((car, idx) => {
+        const t = laneThemes[idx];
+        const card = document.createElement('div');
+        card.className = `p-5 rounded-2xl border-2 ${t.border} ${t.bg} bg-white shadow-sm flex flex-col justify-between space-y-4 transition`;
+
+        const rKey = `r${heat.runNum}`;
+        const existing = (finalRecords[car.id] && finalRecords[car.id][rKey]) ? finalRecords[car.id][rKey] : '';
+
+        card.innerHTML = `
+          <div class="flex justify-between items-start">
+            <span class="px-2.5 py-1 rounded-lg text-xs font-black tracking-wide ${t.badge}">${t.label}</span>
+            <span class="text-xs text-amber-600 font-bold tracking-wider">TOP 4</span>
+          </div>
+          <div>
+            <div class="text-2xl font-black text-slate-900 font-mono tracking-tight">
+              #${car.id} <span class="text-slate-800 font-sans ml-1 text-xl">${car.name}</span>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-500 font-semibold mb-1">기록 (초)</label>
+            <input type="number" step="0.001" id="finalLaneInput_${idx}" value="${existing !== '' ? existing : ''}" 
+              placeholder="0.000" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-center text-3xl font-black font-mono text-slate-900 focus:outline-none focus:border-slate-800 focus:bg-white focus:ring-1 focus:ring-slate-800 transition">
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+
+      renderFinalsSummary();
+    }
+
+    // 결선 실시간 순위 집계표
+    function renderFinalsSummary() {
+      const tbody = document.getElementById('finalsSummaryBody');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+
+      const summaryList = top4Finalists.map(car => {
+        const rec = finalRecords[car.id] || { r1: '', r2: '', r3: '', r4: '' };
+        const times = [rec.r1, rec.r2, rec.r3, rec.r4]
+          .filter(t => t !== '' && !isNaN(t))
+          .map(Number);
+        const bestNum = times.length > 0 ? Math.min(...times) : null;
+
+        return {
+          id: car.id,
+          name: car.name,
+          r1: rec.r1,
+          r2: rec.r2,
+          r3: rec.r3,
+          r4: rec.r4,
+          bestNum: bestNum,
+          bestStr: bestNum !== null ? bestNum.toFixed(3) : '-'
+        };
+      });
+
+      // 최고 기록 오름차순 정렬
+      summaryList.sort((a, b) => {
+        if (a.bestNum === null && b.bestNum === null) return 0;
+        if (a.bestNum === null) return 1;
+        if (b.bestNum === null) return -1;
+        return a.bestNum - b.bestNum;
+      });
+
+      summaryList.forEach((car, idx) => {
+        const hasRecord = car.bestNum !== null;
+        const rankText = hasRecord ? `${idx + 1}위` : '-';
+        const rankClass = (idx === 0 && hasRecord) ? "text-amber-500 font-extrabold" : "text-slate-500 font-bold";
+
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50 transition border-b border-slate-100 text-slate-700";
+        tr.innerHTML = `
+          <td class="p-3 text-center ${rankClass}">${rankText}</td>
+          <td class="p-3 font-mono font-bold text-slate-900 text-center">#${car.id}</td>
+          <td class="p-3 font-bold text-slate-800 text-center">${car.name}</td>
+          <td class="p-3 text-center font-mono text-slate-600">${car.r1 || '-'}</td>
+          <td class="p-3 text-center font-mono text-slate-600">${car.r2 || '-'}</td>
+          <td class="p-3 text-center font-mono text-slate-600">${car.r3 || '-'}</td>
+          <td class="p-3 text-center font-mono text-slate-600">${car.r4 || '-'}</td>
+          <td class="p-3 text-center font-mono font-black text-indigo-600 text-base">${car.bestStr}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function prevFinalHeat() { if (currentFinalHeatIndex > 0) { currentFinalHeatIndex--; renderCurrentFinalHeat(); } }
+    function nextFinalHeat() { if (currentFinalHeatIndex < 3) { currentFinalHeatIndex++; renderCurrentFinalHeat(); } }
+
+    // 결선 기록 저장 함수
+    async function saveCurrentFinalHeat(goNext) {
+      if (finalHeats.length === 0) return;
+      const heat = finalHeats[currentFinalHeatIndex];
+      const payload = [];
+
+      heat.lanes.forEach((car, idx) => {
+        if (!car) return;
+        const val = document.getElementById(`finalLaneInput_${idx}`).value.trim();
+        if (val !== '') {
+          if (!finalRecords[car.id]) finalRecords[car.id] = { r1: '', r2: '', r3: '', r4: '' };
+          finalRecords[car.id][`r${heat.runNum}`] = val;
+          payload.push({ carId: car.id, runType: heat.runNum, time: val });
+        }
+      });
+
+      renderFinalsSummary();
+      showToast(`${heat.title} 기록 저장 중...`);
+
+      try {
+        if (typeof google !== 'undefined' && google.script && google.script.run) {
+          google.script.run
+            .withSuccessHandler(() => showToast("결선 시트에 저장 완료!"))
+            .doPost({ postData: { contents: JSON.stringify({ action: "saveFinals", data: payload }) } });
+        } else if (GAS_API_URL && !GAS_API_URL.includes("...")) {
+          await fetch(GAS_API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain" },
+            body: JSON.stringify({ action: "saveFinals", data: payload })
+          });
+          showToast("결선 시트에 저장 완료!");
+        }
+      } catch (e) {
+        console.error("결선 저장 오류:", e);
+      }
+
+      if (goNext && currentFinalHeatIndex < 3) {
+        currentFinalHeatIndex++;
+        renderCurrentFinalHeat();
+      }
+    }
+
+    // 결선 상위 4인 동기화
+    async function runTop4Sync() {
+      if (!confirm("예선 상위 4명을 결선 시트에 동기화하시겠습니까?")) return;
+      showToast("결선 진출자 선출 중...");
+
+      try {
+        if (typeof google !== 'undefined' && google.script && google.script.run) {
+          google.script.run
+            .withSuccessHandler(res => {
+              if (res && res.success) {
+                top4Finalists = res.top4;
+                initFinalHeats();
+                switchTab('finals');
+                showToast("결선 진출 4명 동기화 완료!");
+              }
+            })
+            .syncTop4ToFinals();
+        } else if (GAS_API_URL && !GAS_API_URL.includes("...")) {
+          const res = await fetch(GAS_API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain" },
+            body: JSON.stringify({ action: "syncTop4" })
+          }).then(r => r.json());
+
+          if (res && res.success) {
+            top4Finalists = res.top4;
+            initFinalHeats();
+            switchTab('finals');
+            showToast("결선 진출 4명 동기화 완료!");
+          }
+        }
+      } catch (e) {
+        console.error("동기화 에러:", e);
+      }
+    }
+
+    // 센서 기록 수신 (자동 저장 없이 인풋에만 입력)
+    function handleIncomingTimerString(rawText) {
+      const matches = rawText.match(/([A-D])\s*=\s*([0-9.]+)/g);
+      if (!matches) return;
+
+      // A=노랑(1번), B=초록(2번), C=파랑(3번), D=빨강(4번)
+      const laneMap = { 'A': 0, 'B': 1, 'C': 2, 'D': 3 };
+      const isFinals = !document.getElementById('view-finals').classList.contains('hidden');
+
+      matches.forEach(m => {
+        const parts = m.split("=");
+        const laneChar = parts[0].trim();
+        const timeVal = parseFloat(parts[1].trim());
+        const idx = laneMap[laneChar];
+
+        if (idx !== undefined && !isNaN(timeVal)) {
+          const inputId = isFinals ? `finalLaneInput_${idx}` : `laneInput_${idx}`;
+          const input = document.getElementById(inputId);
+          if (input) {
+            input.value = timeVal.toFixed(3);
+            input.classList.add("sensor-flash");
+            setTimeout(() => input.classList.remove("sensor-flash"), 1000);
+          }
+        }
+      });
+
+      showToast("센서 기록 수신 완료");
+    }
+
+    // 재경기 처리
+    function handleRerun(stage) {
+      if (!confirm("이번 회차를 취소하고 재경기를 진행하시겠습니까?")) return;
+      const isFinals = (stage === 'finals');
+      for (let i = 0; i < 4; i++) {
+        const inputId = isFinals ? `finalLaneInput_${i}` : `laneInput_${i}`;
+        const input = document.getElementById(inputId);
+        if (input) input.value = "";
+      }
+      showToast("기록이 취소되었습니다. 다시 출발해 주세요!");
+    }
+
+    // 가상 테스트 트리거
+    function simulateTimerSignal() {
+      const t1 = (2.3 + Math.random() * 0.4).toFixed(3);
+      const t2 = (2.3 + Math.random() * 0.4).toFixed(3);
+      const t3 = (2.3 + Math.random() * 0.4).toFixed(3);
+      const t4 = (2.3 + Math.random() * 0.4).toFixed(3);
+      handleIncomingTimerString(`A=${t1} B=${t2} C=${t3} D=${t4}`);
+    }
+
+// 시리얼 연결
+async function connectTimerSerial() {
+  if (!("serial" in navigator)) {
+    alert("이 브라우저는 Web Serial API를 지원하지 않습니다. Chrome을 사용해주세요.");
+    return;
+  }
   try {
+    // 블루투스 표준 SPP / RFCOMM 서비스 ID 허용
+    serialPort = await navigator.serial.requestPort({
+      allowedBluetoothServiceClassIds: [
+        "00001101-0000-1000-8000-00805f9b34fb" // Bluetooth SPP
+      ]
+    });
+
+    await serialPort.open({ baudRate: 9600 });
+    const badge = document.getElementById('serialStatusBadge');
+    if (badge) {
+      badge.className = "px-3 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 flex items-center gap-1.5 transition font-bold";
+      badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span><span>타이머 연결됨</span>`;
+    }
+    showToast("하드웨어 타이머와 연결되었습니다!");
+
+    const textDecoder = new TextDecoderStream();
+    serialPort.readable.pipeTo(textDecoder.writable);
+    const reader = textDecoder.readable.getReader();
+    let buffer = "";
+
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
       if (value) {
         buffer += value;
 
-        // 더비 매직 데이터 패턴 매칭 (예: 1=2.9795 또는 A=2.9795)
-        // 형식: [레인번호 또는 알파벳]=[기록]
+        // DerbyMagic / FastTrack 형식 매칭: 예) 4=2.2672! 또는 1=2.9795$ 또는 A=2.267
         const regex = /([1-4A-D])\s*=\s*([0-9]+\.[0-9]+)/g;
         let match;
-        
+
+        // 버퍼에 누적된 데이터 중 일치하는 레인 기록을 모두 추출
         while ((match = regex.exec(buffer)) !== null) {
           const rawLane = match[1];
           const time = parseFloat(match[2]).toFixed(3); // 소수점 3자리 정리
-
-          // 레인 인덱스 계산 (1~4 또는 A~D -> 1~4)
-          let laneNum = parseInt(rawLane);
-          if (isNaN(laneNum)) {
-            laneNum = rawLane.charCodeAt(0) - 64; // A->1, B->2, C->3, D->4
+          
+          // 기존 handleIncomingTimerString 또는 직접 레인 갱신 함수 호출
+          if (typeof handleIncomingTimerString === 'function') {
+            handleIncomingTimerString(`${rawLane}=${time}`);
           }
-
-          // 해당 레인 입력 필드에 값 반영
-          updateLaneResult(laneNum, time);
         }
 
-        // 버퍼가 너무 길어지면 최근 100글자만 유지
+        // 처리가 끝난 버퍼가 무한정 커지지 않도록 최근 100자만 유지
         if (buffer.length > 200) {
           buffer = buffer.slice(-100);
         }
       }
     }
   } catch (err) {
-    console.error("수신 오류:", err);
-  } finally {
-    reader.releaseLock();
+    console.error("시리얼 연결 취소/오류:", err);
   }
 }
 
-// 화면 업데이트 함수 예시
-function updateLaneResult(laneNum, time) {
-  const input = document.getElementById(`record-lane-${laneNum}`);
-  if (input) {
-    input.value = time;
-    input.classList.add('bg-yellow-100'); // 기록 들어왔을 때 강조 깜빡임
-    setTimeout(() => input.classList.remove('bg-yellow-100'), 1000);
-    console.log(`[반영 성공] ${laneNum}번 레인: ${time}초`);
-  }
-}
+    // 구글 시트 데이터 단일 동기화 함수
+    async function syncFromGoogleSheets() {
+      const syncEl = document.getElementById('syncStatusText');
+      if (syncEl) syncEl.innerText = "구글 시트 데이터 동기화 중...";
+
+      try {
+        if (typeof google !== 'undefined' && google.script && google.script.run) {
+          google.script.run
+            .withSuccessHandler(handleDataResponse)
+            .loadInitialRaceState();
+        } else if (GAS_API_URL && !GAS_API_URL.includes("...")) {
+          const res = await fetch(GAS_API_URL).then(r => r.json());
+          handleDataResponse(res);
+        } else {
+          if (syncEl) syncEl.innerText = "로컬 준비 완료 (GAS_API_URL 설정 필요)";
+        }
+      } catch (err) {
+        if (syncEl) syncEl.innerText = "동기화 실패: " + err.message;
+      }
+    }
+
+    function handleDataResponse(res) {
+      const syncEl = document.getElementById('syncStatusText');
+      if (res && res.success) {
+        if (res.speedCars && res.speedCars.length > 0) speedCars = res.speedCars;
+        if (res.carRecords) carRecords = res.carRecords;
+        if (res.finalsRecords) finalRecords = res.finalsRecords;
+
+        initDynamicHeats();
+        renderCurrentHeat();
+
+        if (res.finalsList && res.finalsList.length >= 4) {
+          top4Finalists = res.finalsList;
+          initFinalHeats();
+          renderFinalsSummary();
+        }
+
+        if (syncEl) syncEl.innerText = `시트 동기화 완료 (${speedCars.length}명)`;
+        showToast(`참가자 ${speedCars.length}명 로드 완료!`);
+      }
+    }
+
+    // 페이지 진입 시 실행
+    window.addEventListener('load', () => {
+      syncFromGoogleSheets();
+    });
+  </script>
+</body>
+</html>
