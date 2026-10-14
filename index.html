@@ -29,14 +29,14 @@
 
     <!-- 헤더 우측 버튼군 -->
     <div class="flex items-center flex-wrap gap-2 text-xs font-semibold">
-      <!-- 타이머 상태 뱃지 -->
-      <span id="serialStatusBadge" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-500 flex items-center gap-1.5 transition">
+      <!-- 타이머 상태 뱃지 (클릭 시 연결/해제 토글) -->
+      <span id="serialStatusBadge" onclick="connectTimerSerial()" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-500 flex items-center gap-1.5 transition font-medium cursor-pointer hover:bg-slate-100">
         <span class="w-2 h-2 rounded-full bg-slate-400"></span>
-        <span>타이머 미연결</span>
+        <span>타이머 연결</span>
       </span>
 
       <button onclick="connectTimerSerial()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg transition">
-        타이머 연결
+        타이머 연결/해제
       </button>
 
       <button onclick="simulateTimerSignal()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg transition">
@@ -70,7 +70,7 @@
           <div class="flex items-center gap-3 mt-1">
             <h2 id="heatTitle" class="text-2xl font-black text-slate-900">제 1 조 (1차 주행)</h2>
             <span id="heatLaneOrderBadge" class="px-2.5 py-0.5 bg-slate-100 text-slate-700 font-mono text-xs rounded-lg border border-slate-300 font-bold">
-              빨강 - 파랑 - 초록 - 노랑
+              노랑 - 초록 - 파랑 - 빨강
             </span>
           </div>
         </div>
@@ -89,7 +89,7 @@
         </div>
       </div>
 
-      <!-- 4개 레인 실시간 카드 그리드 (빨·파·초·노) -->
+      <!-- 4개 레인 실시간 카드 그리드 (노·초·파·빨) -->
       <div id="laneGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"></div>
 
       <!-- 기록 저장 및 이동 바 -->
@@ -143,7 +143,7 @@
           <div class="flex items-center gap-3 mt-1">
             <h2 id="finalHeatTitle" class="text-2xl font-black text-slate-900">결선 제 1차 주행</h2>
             <span id="finalHeatOrderBadge" class="px-2.5 py-0.5 bg-amber-50 text-amber-800 font-mono text-xs rounded-lg border border-amber-300 font-bold">
-              빨강 - 파랑 - 초록 - 노랑
+              노랑 - 초록 - 파랑 - 빨강
             </span>
           </div>
         </div>
@@ -239,7 +239,7 @@
       setTimeout(() => toast.remove(), 3000);
     }
 
-    // 탭 전환 (화이트 모드 기준)
+    // 탭 전환
     function switchTab(tab) {
       if (tab === 'qualifying') {
         document.getElementById('view-qualifying').classList.remove('hidden');
@@ -255,16 +255,13 @@
       }
     }
 
-    // 1. 예선 조 편성: 빨강(맨 오른쪽)에 1번 선수가 오도록 순서 매핑
-   // 1. 예선 조 편성: 바깥 1회 + 안쪽 1회 공정 교차 주행
+    // 1. 예선 조 편성: 바깥 1회 + 안쪽 1회 공정 교차 주행
     function initDynamicHeats() {
       qualifyingHeats = [];
       const total = speedCars.length;
       if (total === 0) return;
       const heatCount = Math.ceil(total / 4);
 
-      // 1차 주행: [노랑(바깥): 3, 초록(안): 2, 파랑(안): 1, 빨강(바깥): 0]
-      // 결과: 맨 오른쪽 빨강 레인에 첫 번째 번호(#1 변하영) 배치
       const run1Order = [3, 2, 1, 0];
 
       for (let h = 0; h < heatCount; h++) {
@@ -281,8 +278,6 @@
         });
       }
 
-      // 2차 주행 (바깥 ↔ 안쪽 완전 교차):
-      // [노랑(바깥): 1, 초록(안): 0, 파랑(안): 3, 빨강(바깥): 2]
       const run2Order = [1, 0, 3, 2];
 
       for (let h = 0; h < heatCount; h++) {
@@ -321,7 +316,6 @@
         const carNameText = isCarPresent ? car.name : '빈 레인';
         const deptText = isCarPresent ? (car.dept || '') : '';
 
-        // 기존 저장된 기록 가져오기
         const rKey = `run${heat.runType}`;
         const existing = (isCarPresent && carRecords[car.id] && carRecords[car.id][rKey]) ? carRecords[car.id][rKey] : '';
 
@@ -383,7 +377,7 @@
     function prevHeat() { if (currentHeatIndex > 0) { currentHeatIndex--; renderCurrentHeat(); } }
     function nextHeat() { if (currentHeatIndex < qualifyingHeats.length - 1) { currentHeatIndex++; renderCurrentHeat(); } }
 
-    // 예선 기록 저장 함수
+    // 예선 기록 저장 함수 (시트 전송 시 4자리 우선 참조 보강)
     async function saveCurrentHeat(goNext) {
       if (qualifyingHeats.length === 0) return;
       const heat = qualifyingHeats[currentHeatIndex];
@@ -391,13 +385,19 @@
 
       heat.lanes.forEach((car, idx) => {
         if (!car) return;
-        const val = document.getElementById(`laneInput_${idx}`).value.trim();
+        const input = document.getElementById(`laneInput_${idx}`);
+        if (!input) return;
+
+        const val = input.value.trim();
+        // 시트 전송용: 원본 4자리가 있으면 우선 사용, 없으면 입력값 사용
+        const sendTime = (input.dataset && input.dataset.fullTime) ? input.dataset.fullTime : val;
+
         if (val !== '') {
           if (!carRecords[car.id]) carRecords[car.id] = { run1: '', run2: '' };
           if (heat.runType === 1) carRecords[car.id].run1 = val;
           if (heat.runType === 2) carRecords[car.id].run2 = val;
 
-          payload.push({ carId: car.id, runType: heat.runType, time: val });
+          payload.push({ carId: car.id, runType: heat.runType, time: sendTime });
         }
       });
 
@@ -427,15 +427,15 @@
       }
     }
 
-    // 2. 결선 조 편성 (레인 로테이션: 1234 -> 2341 -> 3412 -> 4123)
+    // 2. 결선 조 편성 (레인 로테이션)
     function initFinalHeats() {
       if (top4Finalists.length < 4) return;
       const [c1, c2, c3, c4] = top4Finalists;
       finalHeats = [
-        { runNum: 1, title: '결선 제 1차 주행 (빨·파·초·노)', lanes: [c1, c2, c3, c4] },
-        { runNum: 2, title: '결선 제 2차 주행 (파·초·노·빨)', lanes: [c2, c3, c4, c1] },
-        { runNum: 3, title: '결선 제 3차 주행 (초·노·빨·파)', lanes: [c3, c4, c1, c2] },
-        { runNum: 4, title: '결선 제 4차 주행 (노·빨·파·초)', lanes: [c4, c1, c2, c3] }
+        { runNum: 1, title: '결선 제 1차 주행 (노·초·파·빨)', lanes: [c1, c2, c3, c4] },
+        { runNum: 2, title: '결선 제 2차 주행 (초·파·빨·노)', lanes: [c2, c3, c4, c1] },
+        { runNum: 3, title: '결선 제 3차 주행 (파·빨·노·초)', lanes: [c3, c4, c1, c2] },
+        { runNum: 4, title: '결선 제 4차 주행 (빨·노·초·파)', lanes: [c4, c1, c2, c3] }
       ];
     }
 
@@ -506,7 +506,6 @@
         };
       });
 
-      // 최고 기록 오름차순 정렬
       summaryList.sort((a, b) => {
         if (a.bestNum === null && b.bestNum === null) return 0;
         if (a.bestNum === null) return 1;
@@ -538,7 +537,7 @@
     function prevFinalHeat() { if (currentFinalHeatIndex > 0) { currentFinalHeatIndex--; renderCurrentFinalHeat(); } }
     function nextFinalHeat() { if (currentFinalHeatIndex < 3) { currentFinalHeatIndex++; renderCurrentFinalHeat(); } }
 
-    // 결선 기록 저장 함수
+    // 결선 기록 저장 함수 (시트 전송 시 4자리 우선 참조 보강)
     async function saveCurrentFinalHeat(goNext) {
       if (finalHeats.length === 0) return;
       const heat = finalHeats[currentFinalHeatIndex];
@@ -546,11 +545,16 @@
 
       heat.lanes.forEach((car, idx) => {
         if (!car) return;
-        const val = document.getElementById(`finalLaneInput_${idx}`).value.trim();
+        const input = document.getElementById(`finalLaneInput_${idx}`);
+        if (!input) return;
+
+        const val = input.value.trim();
+        const sendTime = (input.dataset && input.dataset.fullTime) ? input.dataset.fullTime : val;
+
         if (val !== '') {
           if (!finalRecords[car.id]) finalRecords[car.id] = { r1: '', r2: '', r3: '', r4: '' };
           finalRecords[car.id][`r${heat.runNum}`] = val;
-          payload.push({ carId: car.id, runType: heat.runNum, time: val });
+          payload.push({ carId: car.id, runType: heat.runNum, time: sendTime });
         }
       });
 
@@ -616,11 +620,24 @@
       }
     }
 
-    // 센서 기록 수신 (자동 저장 없이 인풋에만 입력)
-    // 센서 기록 수신 (9.999 타임아웃 필터 및 좌우 반전 적용)
-    function handleIncomingTimerString(rawText) {
-      const matches = rawText.match(/([1-4A-D])\s*=\s*([0-9.]+)/g);
-      if (!matches) return;
+    // 센서 기록 수신 (화면: 3자리 절사 / 시트: 4자리 원본 보존 / 반전 및 9.0 DNF 처리 완벽 지원)
+    function handleIncomingTimerString(rawLane, displayTime, fullTime) {
+      // 단일 문자열로 넘어올 경우(가상 테스트 호환)
+      if (arguments.length === 1 && typeof rawLane === 'string') {
+        const matches = rawLane.match(/([1-4A-D])\s*=\s*([0-9.]+)/g);
+        if (matches) {
+          matches.forEach(m => {
+            const p = m.split("=");
+            const lane = p[0].trim();
+            const num = p[1].trim();
+            const dotParts = num.split('.');
+            const disp = dotParts.length > 1 ? `${dotParts[0]}.${dotParts[1].slice(0, 3)}` : num;
+            const full = parseFloat(num).toFixed(4);
+            handleIncomingTimerString(lane, disp, full);
+          });
+        }
+        return;
+      }
 
       // 트랙 방향에 맞춘 좌우 반전 매핑 (1번<->4번, 2번<->3번)
       const laneMap = { 
@@ -630,35 +647,34 @@
       
       const finalsView = document.getElementById('view-finals');
       const isFinals = finalsView ? !finalsView.classList.contains('hidden') : false;
+      const idx = laneMap[rawLane];
+      const numericVal = parseFloat(displayTime);
 
-      matches.forEach(m => {
-        const parts = m.split("=");
-        const laneChar = parts[0].trim();
-        const timeVal = parseFloat(parts[1].trim());
-        const idx = laneMap[laneChar];
-
-        if (idx !== undefined && !isNaN(timeVal)) {
-          const inputId = isFinals ? `finalLaneInput_${idx}` : `laneInput_${idx}`;
-          const input = document.getElementById(inputId);
-          
-          if (input) {
-            // [타임아웃/미완주 처리]: 9.0초 이상(9.9999 등)은 빈 레인이므로 무시하거나 비워둠
-            if (timeVal >= 9.0) {
-              console.log(`[타임아웃(DNF) 제외] 레인 ${laneChar} (입력창: #${inputId}): ${timeVal}초 무시`);
-              input.value = ""; // 기존에 남아있던 값이 있다면 초기화
-              return;
-            }
-
-            // 정상 기록만 인풋에 반영
-            input.value = timeVal.toFixed(3);
-            input.classList.add("sensor-flash");
-            setTimeout(() => input.classList.remove("sensor-flash"), 1000);
-            console.log(`[화면 입력 성공] #${inputId} <- ${timeVal.toFixed(3)}초`);
-          } else {
-            console.warn(`[입력창 미발견] ID를 찾을 수 없음: #${inputId}`);
+      if (idx !== undefined && !isNaN(numericVal)) {
+        const inputId = isFinals ? `finalLaneInput_${idx}` : `laneInput_${idx}`;
+        const input = document.getElementById(inputId);
+        
+        if (input) {
+          // [타임아웃/미완주 처리]: 9.0초 이상(9.9999 등)은 DNF 처리로 빈칸 유지
+          if (numericVal >= 9.0) {
+            console.log(`[타임아웃(DNF) 제외] 레인 ${rawLane} (#${inputId}): ${displayTime}초 무시`);
+            input.value = "";
+            delete input.dataset.fullTime;
+            return;
           }
+
+          // 화면 표시: 3자리 절사값
+          input.value = displayTime;
+          // 구글 시트 저장용: 4자리 보존값
+          input.dataset.fullTime = fullTime;
+
+          input.classList.add("sensor-flash");
+          setTimeout(() => input.classList.remove("sensor-flash"), 1000);
+          console.log(`[화면 입력 성공] #${inputId} <- 화면:${displayTime}s / 시트:${fullTime}s`);
+        } else {
+          console.warn(`[입력창 미발견] ID를 찾을 수 없음: #${inputId}`);
         }
-      });
+      }
     }
     
     // 재경기 처리
@@ -668,183 +684,153 @@
       for (let i = 0; i < 4; i++) {
         const inputId = isFinals ? `finalLaneInput_${i}` : `laneInput_${i}`;
         const input = document.getElementById(inputId);
-        if (input) input.value = "";
+        if (input) {
+          input.value = "";
+          delete input.dataset.fullTime;
+        }
       }
       showToast("기록이 취소되었습니다. 다시 출발해 주세요!");
     }
 
     // 가상 테스트 트리거
     function simulateTimerSignal() {
-      const t1 = (2.3 + Math.random() * 0.4).toFixed(3);
-      const t2 = (2.3 + Math.random() * 0.4).toFixed(3);
-      const t3 = (2.3 + Math.random() * 0.4).toFixed(3);
-      const t4 = (2.3 + Math.random() * 0.4).toFixed(3);
-      handleIncomingTimerString(`A=${t1} B=${t2} C=${t3} D=${t4}`);
+      const t1 = (2.3 + Math.random() * 0.4).toFixed(4);
+      const t2 = (2.3 + Math.random() * 0.4).toFixed(4);
+      const t3 = (2.3 + Math.random() * 0.4).toFixed(4);
+      const t4 = (2.3 + Math.random() * 0.4).toFixed(4);
+      handleIncomingTimerString(`1=${t1} 2=${t2} 3=${t3} 4=${t4}`);
     }
 
-
-  // 1. 타이머 연결 / 해제 메인 토글 함수
-  async function connectTimerSerial() {
-    if (!("serial" in navigator)) {
-      alert("이 브라우저는 Web Serial API를 지원하지 않습니다. PC Chrome 브라우저를 사용해주세요.");
-      return;
-    }
-  
-    // 1-1. 이미 포트가 열려 있으면 -> 안전하게 연결 해제
-    if (serialPort) {
-      await disconnectTimerSerial();
-      return;
-    }
-  
-    // 1-2. 연결되어 있지 않은 경우 -> 포트 열기 및 리더 루프 시작
-    try {
-      serialPort = await navigator.serial.requestPort({
-        allowedBluetoothServiceClassIds: [
-          "00001101-0000-1000-8000-00805f9b34fb" // Bluetooth SPP (Standard Serial Port)
-        ]
-      });
-  
-      // 9600 보드레이트 기본 설정
-      await serialPort.open({ 
-        baudRate: 9600,
-        dataBits: 8,
-        stopBits: 1,
-        parity: "none"
-      });
-  
-      keepReading = true;
-  
-      // 포트가 갑작스럽게 뽑히거나 블루투스 전원이 꺼졌을 때 자동 감지
-      serialPort.addEventListener('disconnect', () => {
-        console.warn("[Serial] 하드웨어 장치 연결이 갑자기 끊어졌습니다.");
-        disconnectTimerSerial();
-      });
-  
-      // UI 상태 갱신
-      updateSerialBadge(true);
-      if (typeof showToast === 'function') {
-        showToast("하드웨어 타이머와 연결되었습니다!");
+    // 1. 타이머 연결 / 해제 메인 토글 함수
+    async function connectTimerSerial() {
+      if (!("serial" in navigator)) {
+        alert("이 브라우저는 Web Serial API를 지원하지 않습니다. PC Chrome 브라우저를 사용해주세요.");
+        return;
       }
-  
-      const textDecoder = new TextDecoderStream();
-      const readableStreamClosed = serialPort.readable.pipeTo(textDecoder.writable);
-      serialReader = textDecoder.readable.getReader();
-      let buffer = "";
-  
-      // 실시간 수신 및 버퍼 처리 루프
-      while (keepReading) {
-        const { value, done } = await serialReader.read();
-        if (done) break;
-  
-        if (value) {
-          buffer += value;
-          // console.log("[Serial Raw Chunk]:", value); // 디버깅용
-  
-          // DerbyMagic / FastTrack 형식 정규식 매칭 (예: 4=2.2672! 또는 1=2.9795$)
-          const regex = /([1-4A-D])\s*=\s*([0-9]+\.[0-9]+)[^ ]*/g;
-          let match;
-          let lastIndex = 0;
-  
-          while ((match = regex.exec(buffer)) !== null) {
-            const rawLane = match[1];
-            const rawNum = match[2]; // 원본 소수점 문자열
-            lastIndex = regex.lastIndex;
-  
-            // [화면 표시용]: 반올림 없는 소수점 3자리 절사 (예: "2.2672" -> "2.267")
-            const parts = rawNum.split('.');
-            const displayTime = parts.length > 1 
-              ? `${parts[0]}.${parts[1].slice(0, 3)}` 
-              : rawNum;
-  
-            // [시트 전송용]: 4자리 원본 보존
-            const fullTime = parseFloat(rawNum).toFixed(4);
-  
-            console.log(`[파싱] 레인: ${rawLane} | 화면표시: ${displayTime}초 | 시트용: ${fullTime}초`);
-  
-            // 화면 렌더링 함수 호출
-            if (typeof handleIncomingTimerString === 'function') {
+    
+      if (serialPort) {
+        await disconnectTimerSerial();
+        return;
+      }
+    
+      try {
+        serialPort = await navigator.serial.requestPort({
+          allowedBluetoothServiceClassIds: [
+            "00001101-0000-1000-8000-00805f9b34fb" // Bluetooth SPP
+          ]
+        });
+    
+        await serialPort.open({ 
+          baudRate: 9600,
+          dataBits: 8,
+          stopBits: 1,
+          parity: "none"
+        });
+    
+        keepReading = true;
+    
+        serialPort.addEventListener('disconnect', () => {
+          console.warn("[Serial] 하드웨어 장치 연결이 갑자기 끊어졌습니다.");
+          disconnectTimerSerial();
+        });
+    
+        updateSerialBadge(true);
+        showToast("하드웨어 타이머와 연결되었습니다!");
+    
+        const textDecoder = new TextDecoderStream();
+        const readableStreamClosed = serialPort.readable.pipeTo(textDecoder.writable);
+        serialReader = textDecoder.readable.getReader();
+        let buffer = "";
+    
+        while (keepReading) {
+          const { value, done } = await serialReader.read();
+          if (done) break;
+    
+          if (value) {
+            buffer += value;
+    
+            const regex = /([1-4A-D])\s*=\s*([0-9]+\.[0-9]+)[^ ]*/g;
+            let match;
+            let lastIndex = 0;
+    
+            while ((match = regex.exec(buffer)) !== null) {
+              const rawLane = match[1];
+              const rawNum = match[2];
+              lastIndex = regex.lastIndex;
+    
+              // 화면 표시용: 반올림 없는 소수점 3자리 절사
+              const parts = rawNum.split('.');
+              const displayTime = parts.length > 1 
+                ? `${parts[0]}.${parts[1].slice(0, 3)}` 
+                : rawNum;
+    
+              // 시트 전송용: 원본 4자리 보존
+              const fullTime = parseFloat(rawNum).toFixed(4);
+    
+              console.log(`[파싱] 레인: ${rawLane} | 화면: ${displayTime}초 | 시트용: ${fullTime}초`);
+    
               handleIncomingTimerString(rawLane, displayTime, fullTime);
             }
-          }
-  
-          // 정상 처리된 문자열은 버퍼 앞단에서 슬라이스 (중복 파싱 방지)
-          if (lastIndex > 0) {
-            buffer = buffer.slice(lastIndex);
-          }
-  
-          // 쓰레기 데이터나 미완성 데이터로 버퍼 오버플로우 방지
-          if (buffer.length > 200) {
-            buffer = buffer.slice(-60);
+    
+            if (lastIndex > 0) {
+              buffer = buffer.slice(lastIndex);
+            }
+    
+            if (buffer.length > 200) {
+              buffer = buffer.slice(-60);
+            }
           }
         }
-      }
-  
-      await readableStreamClosed.catch(() => {});
-    } catch (err) {
-      if (err.name === 'NotFoundError') {
-        console.log("[Serial] 사용자가 포트 선택을 취소했습니다.");
-      } else {
-        console.error("[Serial] 시리얼 통신 에러 발생:", err);
-        if (typeof showToast === 'function') {
+    
+        await readableStreamClosed.catch(() => {});
+      } catch (err) {
+        if (err.name === 'NotFoundError') {
+          console.log("[Serial] 사용자가 포트 선택을 취소했습니다.");
+        } else {
+          console.error("[Serial] 시리얼 통신 에러 발생:", err);
           showToast("시리얼 연결 중 오류가 발생했습니다.");
         }
+        await disconnectTimerSerial();
       }
-      await disconnectTimerSerial();
     }
-  }
-  
-  // 2. 타이머 연결 안전 종료 함수 (리더 해제 및 포트 클로즈)
-  async function disconnectTimerSerial() {
-    keepReading = false;
-  
-    try {
-      if (serialReader) {
-        await serialReader.cancel();
-        serialReader.releaseLock();
+    
+    // 2. 타이머 연결 안전 종료 함수
+    async function disconnectTimerSerial() {
+      keepReading = false;
+    
+      try {
+        if (serialReader) {
+          await serialReader.cancel();
+          serialReader.releaseLock();
+          serialReader = null;
+        }
+        if (serialPort) {
+          await serialPort.close();
+          serialPort = null;
+        }
+      } catch (err) {
+        console.warn("[Serial] 포트 닫기 중 잔여 에러 (무시 가능):", err);
+        serialPort = null;
         serialReader = null;
       }
-      if (serialPort) {
-        await serialPort.close();
-        serialPort = null;
-      }
-    } catch (err) {
-      console.warn("[Serial] 포트 닫기 중 잔여 에러 (무시 가능):", err);
-      serialPort = null;
-      serialReader = null;
-    }
-  
-    updateSerialBadge(false);
-    if (typeof showToast === 'function') {
+    
+      updateSerialBadge(false);
       showToast("타이머 연결이 안전하게 해제되었습니다.");
     }
-  }
 
-// 3. 상단 뱃지 UI 갱신 함수
-function updateSerialBadge(isConnected) {
-  const badge = document.getElementById('serialStatusBadge');
-  if (!badge) return;
-
-  if (isConnected) {
-    badge.className = "px-3 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 flex items-center gap-1.5 transition font-bold cursor-pointer hover:bg-emerald-100 shadow-sm";
-    badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span><span>타이머 연결됨 (클릭시 해제)</span>`;
-    badge.title = "클릭하면 타이머 연결을 종료합니다.";
-  } else {
-    badge.className = "px-3 py-1.5 rounded-lg border border-gray-300 bg-gray-50 text-gray-600 flex items-center gap-1.5 transition font-medium cursor-pointer hover:bg-gray-100";
-    badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-gray-400"></span><span>타이머 연결</span>`;
-    badge.title = "블루투스 타이머에 연결합니다.";
-  }
-}
-    // 상단 뱃지 UI 갱신 함수
+    // 3. 상단 뱃지 UI 갱신 함수 (단일화)
     function updateSerialBadge(isConnected) {
       const badge = document.getElementById('serialStatusBadge');
       if (!badge) return;
-    
+
       if (isConnected) {
-        badge.className = "px-3 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 flex items-center gap-1.5 transition font-bold cursor-pointer";
+        badge.className = "px-3 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 flex items-center gap-1.5 transition font-bold cursor-pointer hover:bg-emerald-100 shadow-sm";
         badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span><span>타이머 연결됨 (클릭시 해제)</span>`;
+        badge.title = "클릭하면 타이머 연결을 종료합니다.";
       } else {
-        badge.className = "px-3 py-1.5 rounded-lg border border-gray-300 bg-gray-50 text-gray-600 flex items-center gap-1.5 transition font-medium cursor-pointer";
-        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-gray-400"></span><span>타이머 연결</span>`;
+        badge.className = "px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-500 flex items-center gap-1.5 transition font-medium cursor-pointer hover:bg-slate-100";
+        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-slate-400"></span><span>타이머 연결</span>`;
+        badge.title = "블루투스 타이머에 연결합니다.";
       }
     }
 
