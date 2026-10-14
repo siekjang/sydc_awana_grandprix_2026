@@ -619,11 +619,12 @@
       const matches = rawText.match(/([1-4A-D])\s*=\s*([0-9.]+)/g);
       if (!matches) return;
 
-      // 1번(A)=0, 2번(B)=1, 3번(C)=2, 4번(D)=3 인덱스 매핑
+      // 기존: 1=0, 2=1, 3=2, 4=3
+      // 수정: 1번과 4번, 2번과 3번을 반대로 반전 매핑
       const laneMap = { 
-        '1': 0, '2': 1, '3': 2, '4': 3,
-        'A': 0, 'B': 1, 'C': 2, 'D': 3 
-      };
+        '1': 3, '2': 2, '3': 1, '4': 0,
+        'A': 3, 'B': 2, 'C': 1, 'D': 0 
+      };      
       
       const finalsView = document.getElementById('view-finals');
       const isFinals = finalsView ? !finalsView.classList.contains('hidden') : false;
