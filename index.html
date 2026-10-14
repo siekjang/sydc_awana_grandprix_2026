@@ -670,7 +670,12 @@
         return;
       }
       try {
-        serialPort = await navigator.serial.requestPort();
+        // 변경: 블루투스 표준 SPP / RFCOMM 서비스 ID 허용
+      serialPort = await navigator.serial.requestPort({
+        allowedBluetoothServiceClassIds: [
+          "00001101-0000-1000-8000-00805f9b34fb" // Bluetooth Serial Port Profile (SPP)
+        ]
+      });
         await serialPort.open({ baudRate: 9600 });
         const badge = document.getElementById('serialStatusBadge');
         badge.className = "px-3 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 flex items-center gap-1.5 transition font-bold";
