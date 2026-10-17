@@ -39,10 +39,6 @@
         타이머 연결/해제
       </button>
 
-      <button onclick="resetHardwareTimer()" class="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-300 rounded-lg transition font-bold flex items-center gap-1 shadow-sm">
-        <span>타이머 리셋</span>
-      </button>
-
       <div class="h-4 w-px bg-slate-300 mx-1"></div>
 
       <!-- 탭 버튼 -->
@@ -122,7 +118,7 @@
               <tr>
                 <th class="p-3">차량번호</th>
                 <th class="p-3">부서</th>
-                <th class="p-3">이름</th>
+                <th class="p-3 text-sm">이름</th>
                 <th class="p-3 text-center">예선 1차 (초)</th>
                 <th class="p-3 text-center">예선 2차 (초)</th>
                 <th class="p-3 text-center text-blue-600">최고기록 (MIN)</th>
@@ -186,7 +182,7 @@
               <tr>
                 <th class="p-3 text-center">순위</th>
                 <th class="p-3 text-center">차량번호</th>
-                <th class="p-3 text-center">이름</th>
+                <th class="p-3 text-center text-sm">이름</th>
                 <th class="p-3 text-center">1차 시기 (초)</th>
                 <th class="p-3 text-center">2차 시기 (초)</th>
                 <th class="p-3 text-center">3차 시기 (초)</th>
@@ -295,7 +291,7 @@
       }
     }
 
-    // 예선 카드 렌더링
+    // 예선 카드 렌더링 (이름 강조 확대)
     function renderCurrentHeat() {
       if (qualifyingHeats.length === 0) return;
       const heat = qualifyingHeats[currentHeatIndex];
@@ -312,7 +308,7 @@
         card.className = `p-5 rounded-2xl border-2 ${t.border} ${t.bg} bg-white shadow-sm flex flex-col justify-between space-y-4 transition`;
 
         const isCarPresent = !!car;
-        const carIdText = isCarPresent ? `#${car.id}` : '-';
+        const carIdBadge = isCarPresent ? `<span class="text-xs px-2 py-0.5 rounded bg-slate-200/80 text-slate-700 font-mono font-black">#${car.id}</span>` : '';
         const carNameText = isCarPresent ? car.name : '빈 레인';
         const deptText = isCarPresent ? (car.dept || '') : '';
 
@@ -322,11 +318,14 @@
         card.innerHTML = `
           <div class="flex justify-between items-center">
             <span class="px-2.5 py-1 rounded-md text-xs font-black tracking-wide ${t.badge}">${t.label}</span>
-            <span class="text-xs text-slate-400 font-semibold">${deptText}</span>
+            <div class="flex items-center gap-1.5">
+              ${carIdBadge}
+              <span class="text-xs text-slate-500 font-bold">${deptText}</span>
+            </div>
           </div>
-          <div>
-            <div class="text-2xl font-black text-slate-900 font-mono tracking-tight">
-              ${carIdText} <span class="text-slate-800 font-sans ml-1 text-xl">${carNameText}</span>
+          <div class="py-1">
+            <div class="text-3xl sm:text-4xl font-black text-slate-950 tracking-tight leading-tight truncate" title="${carNameText}">
+              ${carNameText}
             </div>
           </div>
           <div>
@@ -360,9 +359,9 @@
         const tr = document.createElement('tr');
         tr.className = "hover:bg-slate-50 transition border-b border-slate-100";
         tr.innerHTML = `
-          <td class="p-3 font-mono font-bold text-slate-900">#${car.id}</td>
+          <td class="p-3 font-mono font-bold text-slate-700">#${car.id}</td>
           <td class="p-3 text-slate-500">${car.dept}</td>
-          <td class="p-3 font-bold text-slate-800">${car.name}</td>
+          <td class="p-3 text-sm font-black text-slate-950">${car.name}</td>
           <td class="p-3 text-center font-mono ${r1 ? 'font-bold text-slate-800' : 'text-slate-400'}">${r1 ? r1.toFixed(3) : '-'}</td>
           <td class="p-3 text-center font-mono ${r2 ? 'font-bold text-slate-800' : 'text-slate-400'}">${r2 ? r2.toFixed(3) : '-'}</td>
           <td class="p-3 text-center font-mono font-black text-blue-600">${best}</td>
@@ -438,7 +437,7 @@
       ];
     }
 
-    // 결선 카드 렌더링
+    // 결선 카드 렌더링 (이름 강조 확대)
     function renderCurrentFinalHeat() {
       if (finalHeats.length === 0) initFinalHeats();
       if (finalHeats.length === 0) return;
@@ -459,13 +458,16 @@
         const existing = (finalRecords[car.id] && finalRecords[car.id][rKey]) ? finalRecords[car.id][rKey] : '';
 
         card.innerHTML = `
-          <div class="flex justify-between items-start">
-            <span class="px-2.5 py-1 rounded-lg text-xs font-black tracking-wide ${t.badge}">${t.label}</span>
-            <span class="text-xs text-amber-600 font-bold tracking-wider">TOP 4</span>
+          <div class="flex justify-between items-center">
+            <span class="px-2.5 py-1 rounded-md text-xs font-black tracking-wide ${t.badge}">${t.label}</span>
+            <div class="flex items-center gap-1.5">
+              <span class="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-mono font-black">#${car.id}</span>
+              <span class="text-xs text-amber-600 font-black tracking-wider">TOP 4</span>
+            </div>
           </div>
-          <div>
-            <div class="text-2xl font-black text-slate-900 font-mono tracking-tight">
-              #${car.id} <span class="text-slate-800 font-sans ml-1 text-xl">${car.name}</span>
+          <div class="py-1">
+            <div class="text-3xl sm:text-4xl font-black text-slate-950 tracking-tight leading-tight truncate" title="${car.name}">
+              ${car.name}
             </div>
           </div>
           <div>
@@ -515,14 +517,14 @@
       summaryList.forEach((car, idx) => {
         const hasRecord = car.bestNum !== null;
         const rankText = hasRecord ? `${idx + 1}위` : '-';
-        const rankClass = (idx === 0 && hasRecord) ? "text-amber-500 font-extrabold" : "text-slate-500 font-bold";
+        const rankClass = (idx === 0 && hasRecord) ? "text-amber-500 font-extrabold text-sm" : "text-slate-500 font-bold";
 
         const tr = document.createElement('tr');
         tr.className = "hover:bg-slate-50 transition border-b border-slate-100 text-slate-700";
         tr.innerHTML = `
           <td class="p-3 text-center ${rankClass}">${rankText}</td>
-          <td class="p-3 font-mono font-bold text-slate-900 text-center">#${car.id}</td>
-          <td class="p-3 font-bold text-slate-800 text-center">${car.name}</td>
+          <td class="p-3 font-mono font-bold text-slate-700 text-center">#${car.id}</td>
+          <td class="p-3 font-black text-slate-950 text-center text-sm">${car.name}</td>
           <td class="p-3 text-center font-mono text-slate-600">${car.r1 || '-'}</td>
           <td class="p-3 text-center font-mono text-slate-600">${car.r2 || '-'}</td>
           <td class="p-3 text-center font-mono text-slate-600">${car.r3 || '-'}</td>
@@ -655,11 +657,9 @@
       }
     }
     
-    // 재경기 처리: 기존 단일 serialPort를 통해 리셋 신호 송신
-    async function handleRerun(stage) {
+    // 재경기 처리 (하드웨어 송신 제거 - 웹 화면 인풋만 초기화)
+    function handleRerun(stage) {
       if (!confirm("이번 회차를 취소하고 재경기를 진행하시겠습니까?")) return;
-    
-      // 1. 화면 인풋 비우기
       const isFinals = (stage === 'finals');
       for (let i = 0; i < 4; i++) {
         const inputId = isFinals ? `finalLaneInput_${i}` : `laneInput_${i}`;
@@ -669,28 +669,6 @@
           delete input.dataset.fullTime;
         }
       }
-    
-      // 2. 이미 열려 있는 단일 serialPort의 writable 스트림 사용
-      if (serialPort && serialPort.writable) {
-        let writer = null;
-        try {
-          // 별도 포트 오픈 없이 기존 포트에서 writer만 획득
-          writer = serialPort.writable.getWriter();
-          const encoder = new TextEncoder();
-          
-          // DerbyMagic 표준 리셋 바이트 (R\r\n) 송신
-          await writer.write(encoder.encode("R\r\n"));
-          console.log("[Serial] 동일 포트로 타이머 리셋(R) 송신 완료");
-        } catch (err) {
-          console.warn("[Serial] 리셋 송신 실패 (하드웨어 수신 전용 모드 가능성):", err);
-        } finally {
-          // 반드시 즉시 락을 풀어주어야 단일 포트 스트림이 유지됨
-          if (writer) {
-            writer.releaseLock();
-          }
-        }
-      }
-    
       showToast("기록이 취소되었습니다. 다시 출발해 주세요!");
     }
 
@@ -824,40 +802,6 @@
       }
     }
 
-    // 타이머 하드웨어로 리셋 커맨드 전송
-    async function resetHardwareTimer() {
-      // 1. 화면의 4개 레인 입력값 비우기
-      const isFinals = !document.getElementById('view-finals').classList.contains('hidden');
-      for (let i = 0; i < 4; i++) {
-        const inputId = isFinals ? `finalLaneInput_${i}` : `laneInput_${i}`;
-        const input = document.getElementById(inputId);
-        if (input) {
-          input.value = "";
-          delete input.dataset.fullTime;
-        }
-      }
-    
-      // 2. 하드웨어 타이머로 리셋 명령 송신
-      if (serialPort && serialPort.writable) {
-        try {
-          const textEncoder = new TextEncoderStream();
-          const writableStreamClosed = textEncoder.readable.pipeTo(serialPort.writable);
-          const writer = textEncoder.writable.getWriter();
-    
-          // DerbyMagic 표준 리셋 신호: 'R\r' 및 'C\r'
-          await writer.write("R\r\n");
-          
-          writer.releaseLock();
-          console.log("[Serial] 하드웨어 타이머 리셋 커맨드 전송 완료 (R\\r\\n)");
-          showToast("타이머가 리셋되었습니다.");
-        } catch (err) {
-          console.warn("[Serial] 리셋 신호 전송 실패:", err);
-          showToast("화면 기록이 초기화되었습니다.");
-        }
-      } else {
-        showToast("화면 기록이 초기화되었습니다. (타이머 미연결)");
-      }
-    }
     // 구글 시트 데이터 단일 동기화 함수
     async function syncFromGoogleSheets() {
       const syncEl = document.getElementById('syncStatusText');
