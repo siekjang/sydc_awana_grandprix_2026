@@ -25,7 +25,7 @@
 </head>
 
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans selection:bg-indigo-500 selection:text-white relative">
-  <!-- 폭죽용 캔버스 (클릭 통과) -->
+  <!-- 폭죽용 캔버스 (클릭 통과 보장) -->
   <canvas id="confettiCanvas" class="fixed inset-0 pointer-events-none z-[70] w-full h-full" style="pointer-events: none;"></canvas>
 
   <!-- 상단 다크 헤더: 메뉴 순서 [예선 - 결선진출자 발표 - 결선] -->
@@ -173,7 +173,7 @@
       <div id="finalLaneGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5"></div>
 
       <div class="flex items-center justify-between bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-md">
-        <span class="text-xs text-slate-400 font-medium">결선은 4색 레인을 1회씩 순환하여 총 4회 주행합니다. (가장 작은 번호가 1차 주행 빨강 레인)</span>
+        <span class="text-xs text-slate-400 font-medium">결선은 4색 레인을 1회씩 순환(좌측으로 이동)하여 총 4회 주행합니다.</span>
         <div class="flex items-center gap-3">
           <button onclick="saveCurrentFinalHeat(false)" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl border border-slate-700 transition">
             결선 기록 저장
@@ -227,7 +227,7 @@
 
   </main>
 
-  <!-- 1. [결선 진출자 소개 모달] (차량 번호 낮은 순서대로 1명씩 공개) -->
+  <!-- 1. [결선 진출자 소개 모달] (발표 전 차량 번호 완전 은닉) -->
   <div id="finalistsModal" class="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-lg hidden flex flex-col items-center justify-center p-4 sm:p-8">
     <div class="max-w-6xl w-full bg-slate-900 border-2 border-amber-500/60 rounded-3xl p-6 sm:p-10 shadow-2xl space-y-6 text-center">
       
@@ -239,7 +239,7 @@
           🏆 결선 진출 TOP 4 발표
         </h2>
         <p class="text-xs sm:text-sm text-slate-400">
-          영광의 결선 진출자를 차량 번호 순서로 1명씩 차례대로 공개합니다!
+          영광의 결선 진출자를 1명씩 차례대로 공개합니다!
         </p>
       </div>
 
@@ -250,7 +250,7 @@
           닫기
         </button>
         <button id="ceremonyNextBtn" onclick="revealNextFinalistByCarId()" class="px-8 py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black rounded-2xl shadow-xl transition text-sm sm:text-base flex items-center gap-2 transform active:scale-95">
-          <span>🥁 다음 진출자 발표 ➔</span>
+          <span>🥁 첫 번째 진출자 발표 ➔</span>
         </button>
       </div>
 
@@ -346,7 +346,7 @@
       return audioCtx;
     }
 
-    // 센서 수신 비프음 ("삑!")
+    // 센서 기록 수신 비프음 ("삑!")
     function playBeepSound() {
       try {
         const ctx = getAudioContext();
@@ -703,21 +703,24 @@
       }
     }
 
-    // 2. 결선 조 편성 (레인 로테이션 - 번호가 가장 작은 선수가 1차 주행 맨 오른쪽 빨강 레인)
+    // ========================================================
+    // 2. 결선 조 편성 (한 칸씩 왼쪽으로 로테이션)
+    // 1차: [C4, C3, C2, C1] (1번 C1이 맨 오른쪽 빨강)
+    // 2차: [C3, C2, C1, C4]
+    // 3차: [C2, C1, C4, C3]
+    // 4차: [C1, C4, C3, C2]
+    // ========================================================
     function initFinalHeats() {
       if (top4Finalists.length < 4) return;
       
-      // 결선 4인을 차량 번호 오름차순으로 정렬
       const sortedByCarId = [...top4Finalists].sort((a, b) => a.id - b.id);
-      const [c1, c2, c3, c4] = sortedByCarId; // c1: 가장 작은 번호
+      const [c1, c2, c3, c4] = sortedByCarId;
 
-      // 레인 인덱스 0:노랑, 1:초록, 2:파랑, 3:빨강(가장 오른쪽)
-      // 1차 주행 시 c1이 빨강(3번 인덱스)에 오도록 편성
       finalHeats = [
         { runNum: 1, title: '결선 제 1차 주행', lanes: [c4, c3, c2, c1] },
-        { runNum: 2, title: '결선 제 2차 주행', lanes: [c1, c4, c3, c2] },
+        { runNum: 2, title: '결선 제 2차 주행', lanes: [c3, c2, c1, c4] },
         { runNum: 3, title: '결선 제 3차 주행', lanes: [c2, c1, c4, c3] },
-        { runNum: 4, title: '결선 제 4차 주행', lanes: [c3, c2, c1, c4] }
+        { runNum: 4, title: '결선 제 4차 주행', lanes: [c1, c4, c3, c2] }
       ];
     }
 
@@ -822,7 +825,6 @@
     function prevFinalHeat() { if (currentFinalHeatIndex > 0) { currentFinalHeatIndex--; renderCurrentFinalHeat(); } }
     function nextFinalHeat() { if (currentFinalHeatIndex < 3) { currentFinalHeatIndex++; renderCurrentFinalHeat(); } }
 
-    // 결선 4회 완주 여부 검사
     function checkFinalsCompletion() {
       if (top4Finalists.length < 4) return;
       const allCompleted = top4Finalists.every(c => {
@@ -836,7 +838,6 @@
       }
     }
 
-    // 결선 기록 저장 함수
     async function saveCurrentFinalHeat(goNext) {
       if (finalHeats.length === 0) return;
       const heat = finalHeats[currentFinalHeatIndex];
@@ -885,7 +886,7 @@
     }
 
     // ========================================================
-    // [1] 결선 진출자 낮은 번호부터 공개 (차량 번호 오름차순) & 시트 동기화
+    // [1] 결선 진출자 발표 (차량 번호 완전 은닉 상태에서 순차 공개)
     // ========================================================
     let ceremonySortedByCarIdList = [];
     let ceremonyCurrentStep = 0;
@@ -929,32 +930,32 @@
 
       runTop4SyncToSheet();
 
-      // 차량 번호가 낮은 순서(오름차순)로 정렬
+      // 내부적으로는 번호 오름차순으로 준비하되 화면에는 번호를 숨김
       ceremonySortedByCarIdList = [...top4].sort((a, b) => a.id - b.id);
       ceremonyCurrentStep = 0;
 
       const cGrid = document.getElementById('ceremonyGrid');
       cGrid.innerHTML = '';
 
+      // 차량 번호를 전혀 노출하지 않고 '?' 물음표로만 대기 슬롯 구성
       for (let i = 0; i < 4; i++) {
-        const targetCar = ceremonySortedByCarIdList[i];
         const slot = document.createElement('div');
         slot.id = `ceremonySlot_${i}`;
         slot.className = "p-6 rounded-3xl border-4 border-slate-800 bg-slate-900 shadow-xl flex flex-col justify-center items-center space-y-4 transition min-h-[280px]";
         slot.innerHTML = `
-          <div class="w-16 h-16 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center text-amber-400 font-mono font-black text-2xl">
-            #${targetCar.id}
+          <div class="w-16 h-16 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center text-slate-500 font-black text-3xl">
+            ?
           </div>
           <div class="text-center">
-            <span class="text-xs text-slate-500 font-bold block">진출자 #${targetCar.id}</span>
-            <span class="text-xl font-bold text-slate-600 mt-1 block">두구두구...</span>
+            <span class="text-xs text-slate-500 font-bold block">진출자 ${i + 1}</span>
+            <span class="text-xl font-bold text-slate-600 mt-1 block">발표 대기 중...</span>
           </div>
         `;
         cGrid.appendChild(slot);
       }
 
       const btn = document.getElementById('ceremonyNextBtn');
-      btn.innerHTML = `<span>🥁 #${ceremonySortedByCarIdList[0].id}번 발표 시작 ➔</span>`;
+      btn.innerHTML = `<span>🥁 첫 번째 진출자 발표 ➔</span>`;
       btn.onclick = revealNextFinalistByCarId;
 
       document.getElementById('finalistsModal').classList.remove('hidden');
@@ -987,6 +988,7 @@
         ];
         const cTheme = colors[ceremonyCurrentStep % colors.length];
 
+        // 열리는 순간에만 번호와 이름 공개
         slot.className = `p-6 rounded-3xl border-4 ${cTheme.border} bg-white shadow-2xl flex flex-col justify-between space-y-4 ring-4 ${cTheme.ring} text-slate-950 transform animate-reveal`;
         slot.innerHTML = `
           <div class="flex justify-between items-center">
@@ -1007,8 +1009,7 @@
         btn.disabled = false;
 
         if (ceremonyCurrentStep < 4) {
-          const nextCar = ceremonySortedByCarIdList[ceremonyCurrentStep];
-          btn.innerHTML = `<span>🥁 다음 #${nextCar.id}번 발표 (${ceremonyCurrentStep}/4) ➔</span>`;
+          btn.innerHTML = `<span>🥁 다음 진출자 발표 (${ceremonyCurrentStep}/4) ➔</span>`;
         } else {
           btn.innerHTML = `<span>🏁 결선 레이스로 이동 ➔</span>`;
         }
@@ -1219,7 +1220,7 @@
       try {
         serialPort = await navigator.serial.requestPort({
           allowedBluetoothServiceClassIds: [
-            "00001101-0000-1000-8000-00805f9b34fb" // Bluetooth SPP
+            "00001101-0000-1000-8000-00805f9b34fb"
           ]
         });
     
@@ -1443,7 +1444,6 @@
       }
     }
 
-    // 결선 4회 가상 기록 일괄 완주 (시상식 테스트용)
     function simCompleteAllFinals() {
       if (top4Finalists.length < 4) {
         alert("결선 진출자가 선출되지 않았습니다. 예선 기록 생성 후 [결선 진출자 발표]를 먼저 진행해주세요.");
@@ -1479,7 +1479,6 @@
       showToast("기록이 초기화되었습니다. (참가자 명단 유지됨)");
     }
 
-    // 페이지 진입 시 자동 실행
     window.addEventListener('load', () => {
       syncFromGoogleSheets();
     });
