@@ -145,7 +145,7 @@
       </div>
     </section>
 
-    <!-- 2. [신규] 부활전 (재경기) 화면 -->
+    <!-- 2. 부활전 (재경기) 화면 -->
     <section id="view-revival" class="hidden space-y-6">
       <div class="bg-slate-900 p-5 rounded-2xl border border-indigo-500/30 shadow-lg flex flex-wrap items-center justify-between gap-4">
         <div>
@@ -165,7 +165,6 @@
         </div>
       </div>
 
-      <!-- 부활전 4개 레인 실시간 카드 그리드 -->
       <div id="revivalLaneGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5"></div>
 
       <div class="flex items-center justify-between bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-md">
@@ -262,7 +261,7 @@
 
   </main>
 
-  <!-- 1. [결선 진출자 소개 모달] (큰 번호 -> 작은 번호 순서) -->
+  <!-- 1. [결선 진출자 소개 모달] (큰 번호 -> 작은 번호 순서, 리얼 드럼롤 연동) -->
   <div id="finalistsModal" class="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-lg hidden flex flex-col items-center justify-center p-4 sm:p-8">
     <div class="max-w-6xl w-full bg-slate-900 border-2 border-amber-500/60 rounded-3xl p-6 sm:p-10 shadow-2xl space-y-6 text-center">
       
@@ -381,6 +380,7 @@
       return audioCtx;
     }
 
+    // 1. 센서 기록 수신 비프음 ("삑!")
     function playBeepSound() {
       try {
         const ctx = getAudioContext();
@@ -401,42 +401,94 @@
       } catch (err) {}
     }
 
-    let drumrollOsc = null;
-    function startDrumrollSound() {
-      try {
-        const ctx = getAudioContext();
-        drumrollOsc = ctx.createOscillator();
-        const gain = ctx.createGain();
-
-        drumrollOsc.type = "sawtooth";
-        drumrollOsc.frequency.setValueAtTime(80, ctx.currentTime);
-
-        const lfo = ctx.createOscillator();
-        lfo.frequency.setValueAtTime(24, ctx.currentTime);
-        const lfoGain = ctx.createGain();
-        lfoGain.gain.setValueAtTime(25, ctx.currentTime);
-        lfo.connect(lfoGain);
-        lfoGain.connect(drumrollOsc.frequency);
-
-        drumrollOsc.connect(gain);
-        gain.connect(ctx.destination);
-        gain.gain.setValueAtTime(0.3, ctx.currentTime);
-
-        lfo.start();
-        drumrollOsc.start();
-      } catch (e) {}
-    }
+    // 2. [신규] 약 5~6초짜리 리얼 오케스트라 스네어 드럼롤(두구두구...) 사운드 합성기
+    let activeDrumrollSources = [];
 
     function stopDrumrollSound() {
-      if (drumrollOsc) {
-        try {
-          drumrollOsc.stop();
-          drumrollOsc.disconnect();
-        } catch (e) {}
-        drumrollOsc = null;
+      activeDrumrollSources.forEach(s => {
+        try { s.stop(); s.disconnect(); } catch (e) {}
+      });
+      activeDrumrollSources = [];
+    }
+
+    function playDrumrollSound(durationSec = 5.2) {
+      stopDrumrollSound();
+      try {
+        const ctx = getAudioContext();
+        const now = ctx.currentTime;
+
+        // 화이트 노이즈 버퍼 생성 (드럼 헤드 스네어 진동)
+        const bufferSize = ctx.sampleRate * 0.1;
+        const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          output[i] = Math.random() * 2 - 1;
+        }
+
+        // 스네어 드럼 타격 1회 생성 함수
+        function hitSnare(time, gainVal) {
+          const noise = ctx.createBufferSource();
+          noise.buffer = noiseBuffer;
+
+          const filter = ctx.createBiquadFilter();
+          filter.type = "bandpass";
+          filter.frequency.setValueAtTime(1000, time);
+          filter.Q.setValueAtTime(2.5, time);
+
+          const gainNode = ctx.createGain();
+          gainNode.gain.setValueAtTime(gainVal, time);
+          gainNode.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
+
+          noise.connect(filter);
+          filter.connect(gainNode);
+          gainNode.connect(ctx.destination);
+
+          noise.start(time);
+          noise.stop(time + 0.05);
+          activeDrumrollSources.push(noise);
+        }
+
+        // 점점 빨라지는 스트로크 스케줄링 (0초부터 durationSec까지)
+        let t = 0;
+        let interval = 0.16; // 초기 느린 속도
+        while (t < durationSec) {
+          const progress = t / durationSec;
+          const hitTime = now + t;
+          const currentGain = 0.12 + Math.pow(progress, 2) * 0.45; // 후반부로 갈수록 커지는 음량
+          
+          hitSnare(hitTime, currentGain);
+
+          // 후반부로 갈수록 타격 간격이 좁아짐 (0.16s -> 0.035s)
+          interval = 0.16 - Math.pow(progress, 1.5) * 0.125;
+          t += interval;
+        }
+
+        // 마지막 타격 (스네어 림샷 + 묵직한 킥 타격음)
+        const finalImpactTime = now + durationSec;
+        hitSnare(finalImpactTime, 0.85);
+
+        const kick = ctx.createOscillator();
+        const kickGain = ctx.createGain();
+        kick.type = "sine";
+        kick.frequency.setValueAtTime(150, finalImpactTime);
+        kick.frequency.exponentialRampToValueAtTime(40, finalImpactTime + 0.25);
+
+        kickGain.gain.setValueAtTime(0.8, finalImpactTime);
+        kickGain.gain.exponentialRampToValueAtTime(0.001, finalImpactTime + 0.25);
+
+        kick.connect(kickGain);
+        kickGain.connect(ctx.destination);
+
+        kick.start(finalImpactTime);
+        kick.stop(finalImpactTime + 0.25);
+        activeDrumrollSources.push(kick);
+
+      } catch (err) {
+        console.warn("[Drumroll] 오디오 합성 에러:", err);
       }
     }
 
+    // 3. 승리의 팡파르 (빠바밤-!)
     function playFanfareSound() {
       try {
         const ctx = getAudioContext();
@@ -470,6 +522,7 @@
       } catch (e) {}
     }
 
+    // 4. Canvas 색종이 폭죽 (Confetti)
     let confettiParticles = [];
     let confettiAnimId = null;
 
@@ -542,7 +595,7 @@
       setTimeout(() => toast.remove(), 3000);
     }
 
-    // 탭 전환 (예선, 부활전, 결선)
+    // 탭 전환
     function switchTab(tab) {
       document.getElementById('view-qualifying').classList.add('hidden');
       document.getElementById('view-revival').classList.add('hidden');
@@ -568,7 +621,7 @@
       }
     }
 
-    // 1. 예선 조 편성: 바깥 1회 + 안쪽 1회 공정 교차 주행
+    // 예선 조 편성
     function initDynamicHeats() {
       qualifyingHeats = [];
       const total = speedCars.length;
@@ -608,7 +661,6 @@
       }
     }
 
-    // 예선 카드 렌더링
     function renderCurrentHeat() {
       if (qualifyingHeats.length === 0) return;
       const heat = qualifyingHeats[currentHeatIndex];
@@ -657,7 +709,6 @@
       renderQualifyingTable();
     }
 
-    // 예선 테이블 렌더링
     function renderQualifyingTable() {
       const tbody = document.getElementById('qualifyingTableBody');
       if (!tbody) return;
@@ -741,9 +792,7 @@
       }
     }
 
-    // ========================================================
-    // [신규] 부활전 (재경기) 렌더링 및 로직
-    // ========================================================
+    // 부활전 렌더링 및 로직
     function renderRevivalLanes() {
       const grid = document.getElementById('revivalLaneGrid');
       grid.innerHTML = '';
@@ -819,7 +868,6 @@
       showToast("부활전 레인이 초기화되었습니다.");
     }
 
-    // 부활전 저장 로직 (방안 2-A: 비어있는 회차 또는 더 느린 회차를 부활전 기록으로 비교·대체)
     async function saveRevivalHeat() {
       const payload = [];
       let updatedCount = 0;
@@ -847,18 +895,15 @@
         const t1 = (rec.run1 !== '' && !isNaN(rec.run1)) ? parseFloat(rec.run1) : null;
         const t2 = (rec.run2 !== '' && !isNaN(rec.run2)) ? parseFloat(rec.run2) : null;
 
-        // 1. 비어있는 회차가 있다면 그 회차에 우선 채움
         let targetRunType = null;
         if (t1 === null) targetRunType = 1;
         else if (t2 === null) targetRunType = 2;
         else {
-          // 2. 둘 다 있다면 더 느린 회차를 대체 후보로 선택
           targetRunType = (t1 >= t2) ? 1 : 2;
         }
 
         const currentTargetTime = targetRunType === 1 ? t1 : t2;
 
-        // 3. 부활전 기록이 기존 해당 회차 기록보다 빠르거나(또는 비어있었을 때) 갱신
         if (currentTargetTime === null || newTimeNum < currentTargetTime) {
           if (targetRunType === 1) rec.run1 = timeVal;
           else rec.run2 = timeVal;
@@ -893,13 +938,7 @@
       }
     }
 
-    // ========================================================
-    // 3. 결선 조 편성 (한 칸씩 왼쪽으로 로테이션)
-    // 1차: [C4, C3, C2, C1] (1번 C1이 맨 오른쪽 빨강)
-    // 2차: [C3, C2, C1, C4]
-    // 3차: [C2, C1, C4, C3]
-    // 4차: [C1, C4, C3, C2]
-    // ========================================================
+    // 결선 조 편성 (한 칸씩 왼쪽으로 로테이션)
     function initFinalHeats() {
       if (top4Finalists.length < 4) return;
       
@@ -914,7 +953,6 @@
       ];
     }
 
-    // 결선 카드 렌더링
     function renderCurrentFinalHeat() {
       if (finalHeats.length === 0) initFinalHeats();
       if (finalHeats.length === 0) return;
@@ -959,7 +997,6 @@
       renderFinalsSummary();
     }
 
-    // 결선 실시간 순위 집계표
     function renderFinalsSummary() {
       const tbody = document.getElementById('finalsSummaryBody');
       if (!tbody) return;
@@ -1076,7 +1113,7 @@
     }
 
     // ========================================================
-    // 결선 진출자 발표 (큰 번호 -> 작은 번호 내림차순 공개)
+    // 결선 진출자 발표 (약 5~6초 리얼 드럼롤 연동)
     // ========================================================
     let ceremonySortedByCarIdList = [];
     let ceremonyCurrentStep = 0;
@@ -1159,15 +1196,26 @@
       const btn = document.getElementById('ceremonyNextBtn');
       btn.disabled = true;
 
-      startDrumrollSound();
+      // 5.2초 길이의 리얼 오케스트라 스네어 드럼롤 재생 (점점 빨라지다 쾅!)
+      const drumDuration = 5.2;
+      playDrumrollSound(drumDuration);
 
+      const slot = document.getElementById(`ceremonySlot_${ceremonyCurrentStep}`);
+      if (slot) {
+        const textEl = slot.querySelector('.text-slate-600');
+        if (textEl) {
+          textEl.innerText = "두구두구두구...";
+          textEl.className = "text-xl font-black text-amber-400 mt-1 block animate-pulse";
+        }
+      }
+
+      // 5.2초 뒤 마지막 타격음과 함께 팡파르 + 색종이 폭죽 + 카드 뒤집기
       setTimeout(() => {
-        stopDrumrollSound();
         playFanfareSound();
         triggerConfetti();
 
         const car = ceremonySortedByCarIdList[ceremonyCurrentStep];
-        const slot = document.getElementById(`ceremonySlot_${ceremonyCurrentStep}`);
+        const targetSlot = document.getElementById(`ceremonySlot_${ceremonyCurrentStep}`);
 
         const colors = [
           { border: 'border-amber-400', badge: 'bg-amber-400 text-slate-950', ring: 'ring-amber-400/50' },
@@ -1177,8 +1225,8 @@
         ];
         const cTheme = colors[ceremonyCurrentStep % colors.length];
 
-        slot.className = `p-6 rounded-3xl border-4 ${cTheme.border} bg-white shadow-2xl flex flex-col justify-between space-y-4 ring-4 ${cTheme.ring} text-slate-950 transform animate-reveal`;
-        slot.innerHTML = `
+        targetSlot.className = `p-6 rounded-3xl border-4 ${cTheme.border} bg-white shadow-2xl flex flex-col justify-between space-y-4 ring-4 ${cTheme.ring} text-slate-950 transform animate-reveal`;
+        targetSlot.innerHTML = `
           <div class="flex justify-between items-center">
             <span class="px-3 py-1 rounded-full text-xs font-black ${cTheme.badge}">결선 진출 확정</span>
             <span class="font-mono font-black text-sm px-2.5 py-0.5 rounded-lg bg-slate-900 text-white">#${car.id}</span>
@@ -1201,7 +1249,7 @@
         } else {
           btn.innerHTML = `<span>🏁 결선 레이스로 이동 ➔</span>`;
         }
-      }, 1200);
+      }, drumDuration * 1000);
     }
 
     function closeFinalistsCeremony(goFinals) {
@@ -1226,9 +1274,7 @@
       } catch (e) {}
     }
 
-    // ========================================================
     // 최종 결선 시상식 모달 (4위 -> 3위 -> 2위 -> 1위 챔피언)
-    // ========================================================
     let awardsSortedList = [];
     let awardRevealIndex = 0;
 
@@ -1290,10 +1336,10 @@
       const nextBtn = document.getElementById('awardsNextBtn');
       nextBtn.disabled = true;
 
-      startDrumrollSound();
+      const drumDuration = 5.2;
+      playDrumrollSound(drumDuration);
 
       setTimeout(() => {
-        stopDrumrollSound();
         playFanfareSound();
         triggerConfetti();
 
@@ -1330,7 +1376,7 @@
         else {
           nextBtn.innerHTML = `<span>🎉 모든 시상 완료 (닫기)</span>`;
         }
-      }, 1500);
+      }, drumDuration * 1000);
     }
 
     function closeAwardsCeremony() {
@@ -1338,7 +1384,7 @@
       document.getElementById('awardsModal').classList.add('hidden');
     }
 
-    // 센서 기록 수신 (예선, 부활전, 결선 자동 분기)
+    // 센서 기록 수신
     function handleIncomingTimerString(rawLane, displayTime, fullTime) {
       const laneMap = { 
         '1': 3, '2': 2, '3': 1, '4': 0,
@@ -1397,7 +1443,7 @@
       showToast("기록이 취소되었습니다. 다시 출발해 주세요!");
     }
 
-    // 1. 타이머 연결 / 해제 메인 토글 함수
+    // 타이머 연결 / 해제 메인 토글 함수
     async function connectTimerSerial() {
       playBeepSound();
 
@@ -1489,7 +1535,6 @@
       }
     }
     
-    // 2. 타이머 연결 안전 종료 함수
     async function disconnectTimerSerial() {
       keepReading = false;
     
@@ -1513,7 +1558,6 @@
       showToast("타이머 연결이 안전하게 해제되었습니다.");
     }
 
-    // 3. 상단 뱃지 UI 갱신 함수
     function updateSerialBadge(isConnected) {
       const badge = document.getElementById('serialStatusBadge');
       if (!badge) return;
@@ -1529,7 +1573,6 @@
       }
     }
 
-    // 구글 시트 데이터 단일 동기화 함수
     async function syncFromGoogleSheets() {
       const syncEl = document.getElementById('syncStatusText');
       if (syncEl) syncEl.innerText = "구글 시트 데이터 동기화 중...";
@@ -1574,9 +1617,7 @@
       }
     }
 
-    // ========================================================
-    // 하단 시뮬레이션 테스트 툴
-    // ========================================================
+    // 시뮬레이션 테스트 툴
     function simCurrentHeat() {
       const revivalView = document.getElementById('view-revival');
       const isRevival = revivalView ? !revivalView.classList.contains('hidden') : false;
