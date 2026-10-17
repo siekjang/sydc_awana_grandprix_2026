@@ -6,80 +6,80 @@
   <title>2026 서울영동 어와나 그랑프리 레이스 매니저</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    @keyframes yellow-flash {
-      0%, 100% { background-color: #ffffff; }
-      50% { background-color: #fef08a; }
+    @keyframes dark-yellow-flash {
+      0%, 100% { background-color: #0f172a; }
+      50% { background-color: #713f12; }
     }
     .sensor-flash {
-      animation: yellow-flash 0.9s ease-in-out;
+      animation: dark-yellow-flash 0.9s ease-in-out;
     }
   </style>
 </head>
 
-<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col font-sans">
-  <!-- 상단 화이트 헤더 -->
-  <header class="bg-white border-b border-slate-200 px-6 py-4 shadow-sm flex flex-wrap justify-between items-center gap-4">
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
+  <!-- 상단 다크 헤더 -->
+  <header class="bg-slate-900 border-b border-slate-800 px-6 py-4 shadow-md flex flex-wrap justify-between items-center gap-4">
     <div class="flex items-center gap-3">
-      <div class="w-3 h-7 bg-indigo-600 rounded-sm"></div>
+      <div class="w-3 h-7 bg-indigo-500 rounded-sm shadow-sm shadow-indigo-500/50"></div>
       <div>
-        <h1 class="text-xl font-black text-slate-900 tracking-tight">AWANA GRAND PRIX 2026</h1>
-        <p class="text-xs text-slate-500 font-medium">서울영동교회 어와나 그랑프리 경기 운영 시스템</p>
+        <h1 class="text-xl font-black text-white tracking-tight">AWANA GRAND PRIX 2026</h1>
+        <p class="text-xs text-slate-400 font-medium">서울영동교회 어와나 그랑프리 경기 운영 시스템</p>
       </div>
     </div>
 
     <!-- 헤더 우측 버튼군 -->
     <div class="flex items-center flex-wrap gap-2 text-xs font-semibold">
       <!-- 타이머 상태 뱃지 (클릭 시 연결/해제 토글) -->
-      <span id="serialStatusBadge" onclick="connectTimerSerial()" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-500 flex items-center gap-1.5 transition font-medium cursor-pointer hover:bg-slate-100">
-        <span class="w-2 h-2 rounded-full bg-slate-400"></span>
+      <span id="serialStatusBadge" onclick="connectTimerSerial()" class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 flex items-center gap-1.5 transition font-medium cursor-pointer hover:bg-slate-700 hover:text-slate-200">
+        <span class="w-2 h-2 rounded-full bg-slate-500"></span>
         <span>타이머 연결</span>
       </span>
 
-      <button onclick="connectTimerSerial()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg transition">
+      <button onclick="connectTimerSerial()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition">
         타이머 연결/해제
       </button>
 
-      <div class="h-4 w-px bg-slate-300 mx-1"></div>
+      <div class="h-4 w-px bg-slate-800 mx-1"></div>
 
       <!-- 탭 버튼 -->
-      <button id="tabBtn-qualifying" onclick="switchTab('qualifying')" class="px-3.5 py-1.5 bg-slate-900 text-white rounded-lg shadow-sm transition">
+      <button id="tabBtn-qualifying" onclick="switchTab('qualifying')" class="px-3.5 py-1.5 bg-indigo-600 text-white font-bold rounded-lg shadow-sm transition">
         예선 레이스
       </button>
-      <button id="tabBtn-finals" onclick="switchTab('finals')" class="px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-600 rounded-lg border border-slate-200 transition">
+      <button id="tabBtn-finals" onclick="switchTab('finals')" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium rounded-lg border border-slate-700 transition">
         결선 레이스 (4회)
       </button>
-      <button onclick="runTop4Sync()" class="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg transition">
+      <button onclick="runTop4Sync()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition">
         결선 진출 발표
       </button>
     </div>
   </header>
 
-  <main class="max-w-7xl mx-auto px-4 mt-6 space-y-6 flex-1">
+  <main class="max-w-7xl mx-auto px-4 mt-6 space-y-6 flex-1 w-full">
 
     <!-- 1. 예선전 화면 -->
     <section id="view-qualifying" class="space-y-6">
       
       <!-- 상단 조 컨트롤 바 -->
-      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
+      <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-lg flex flex-wrap items-center justify-between gap-4">
         <div>
           <span class="text-xs text-slate-400 font-bold block">현재 경기 회차 (예선)</span>
           <div class="flex items-center gap-3 mt-1">
-            <h2 id="heatTitle" class="text-2xl font-black text-slate-900">제 1 조 (1차 주행)</h2>
-            <span id="heatLaneOrderBadge" class="px-2.5 py-0.5 bg-slate-100 text-slate-700 font-mono text-xs rounded-lg border border-slate-300 font-bold">
+            <h2 id="heatTitle" class="text-2xl font-black text-white">제 1 조 (1차 주행)</h2>
+            <span id="heatLaneOrderBadge" class="px-2.5 py-0.5 bg-slate-800 text-slate-300 font-mono text-xs rounded-lg border border-slate-700 font-bold">
               노랑 - 초록 - 파랑 - 빨강
             </span>
           </div>
         </div>
 
         <div class="flex items-center flex-wrap gap-2">
-          <button onclick="handleRerun('qualifying')" class="px-3 sm:px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 font-extrabold rounded-xl text-xs sm:text-sm transition flex items-center gap-1 shadow-sm">
+          <button onclick="handleRerun('qualifying')" class="px-3 sm:px-4 py-2 bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-800/80 font-extrabold rounded-xl text-xs sm:text-sm transition flex items-center gap-1 shadow-sm">
             재경기 (기록 취소)
           </button>
-          <button onclick="prevHeat()" class="px-3 sm:px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs sm:text-sm transition">
+          <button onclick="prevHeat()" class="px-3 sm:px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl text-xs sm:text-sm border border-slate-700 transition">
             이전 경기
           </button>
-          <span id="heatIndicator" class="font-mono font-extrabold text-sm px-3 text-slate-600">1 / 1</span>
-          <button onclick="nextHeat()" class="px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs sm:text-sm shadow transition">
+          <span id="heatIndicator" class="font-mono font-extrabold text-sm px-3 text-slate-300">1 / 1</span>
+          <button onclick="nextHeat()" class="px-3 sm:px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs sm:text-sm shadow-md transition">
             다음 경기
           </button>
         </div>
@@ -89,43 +89,43 @@
       <div id="laneGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"></div>
 
       <!-- 기록 저장 및 이동 바 -->
-      <div class="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-        <span id="syncStatusText" class="text-xs text-slate-500 font-semibold">데이터 준비 완료</span>
+      <div class="flex items-center justify-between bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-md">
+        <span id="syncStatusText" class="text-xs text-slate-400 font-semibold">데이터 준비 완료</span>
         <div class="flex items-center gap-3">
-          <button onclick="saveCurrentHeat(false)" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl transition">
+          <button onclick="saveCurrentHeat(false)" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl border border-slate-700 transition">
             기록 저장
           </button>
-          <button onclick="saveCurrentHeat(true)" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold rounded-xl shadow transition flex items-center gap-1">
+          <button onclick="saveCurrentHeat(true)" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-bold rounded-xl shadow-md transition flex items-center gap-1">
             <span>저장 후 다음 레이스 ➔</span>
           </button>
         </div>
       </div>
 
       <!-- 전체 예선 집계표 -->
-      <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+      <div class="bg-slate-900 rounded-2xl border border-slate-800 p-5 shadow-lg space-y-4">
         <div class="flex justify-between items-center">
           <div>
-            <h3 class="font-bold text-base text-slate-800">전체 예선 경기 실시간 집계표</h3>
+            <h3 class="font-bold text-base text-white">전체 예선 경기 실시간 집계표</h3>
             <p class="text-xs text-slate-400">구글 시트에 저장된 기록이 실시간으로 반영됩니다.</p>
           </div>
-          <button onclick="syncFromGoogleSheets()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition">
+          <button onclick="syncFromGoogleSheets()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl border border-slate-700 transition">
             시트 데이터 동기화
           </button>
         </div>
         <div class="overflow-x-auto max-h-96">
           <table class="w-full text-left text-xs border-collapse">
-            <thead class="bg-slate-50 sticky top-0 text-slate-600 font-bold border-b border-slate-200">
+            <thead class="bg-slate-800/80 sticky top-0 text-slate-300 font-bold border-b border-slate-700">
               <tr>
                 <th class="p-3">차량번호</th>
                 <th class="p-3">부서</th>
                 <th class="p-3 text-sm">이름</th>
                 <th class="p-3 text-center">예선 1차 (초)</th>
                 <th class="p-3 text-center">예선 2차 (초)</th>
-                <th class="p-3 text-center text-blue-600">최고기록 (MIN)</th>
+                <th class="p-3 text-center text-indigo-400">최고기록 (MIN)</th>
                 <th class="p-3 text-center">상태</th>
               </tr>
             </thead>
-            <tbody id="qualifyingTableBody" class="divide-y divide-slate-100"></tbody>
+            <tbody id="qualifyingTableBody" class="divide-y divide-slate-800 text-slate-300"></tbody>
           </table>
         </div>
       </div>
@@ -133,26 +133,26 @@
 
     <!-- 2. 결선전 화면 -->
     <section id="view-finals" class="hidden space-y-6">
-      <div class="bg-white p-5 rounded-2xl border border-amber-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
+      <div class="bg-slate-900 p-5 rounded-2xl border border-amber-500/30 shadow-lg flex flex-wrap items-center justify-between gap-4">
         <div>
-          <span class="text-xs text-amber-600 font-bold block">최종 결선 레이스 (레인 로테이션 주행)</span>
+          <span class="text-xs text-amber-400 font-bold block">최종 결선 레이스 (레인 로테이션 주행)</span>
           <div class="flex items-center gap-3 mt-1">
-            <h2 id="finalHeatTitle" class="text-2xl font-black text-slate-900">결선 제 1차 주행</h2>
-            <span id="finalHeatOrderBadge" class="px-2.5 py-0.5 bg-amber-50 text-amber-800 font-mono text-xs rounded-lg border border-amber-300 font-bold">
+            <h2 id="finalHeatTitle" class="text-2xl font-black text-white">결선 제 1차 주행</h2>
+            <span id="finalHeatOrderBadge" class="px-2.5 py-0.5 bg-amber-950/60 text-amber-300 font-mono text-xs rounded-lg border border-amber-800 font-bold">
               노랑 - 초록 - 파랑 - 빨강
             </span>
           </div>
         </div>
 
         <div class="flex items-center flex-wrap gap-2">
-          <button onclick="handleRerun('finals')" class="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 font-bold rounded-xl text-xs sm:text-sm transition flex items-center gap-1 shadow-sm">
+          <button onclick="handleRerun('finals')" class="px-3 py-2 bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-800/80 font-bold rounded-xl text-xs sm:text-sm transition flex items-center gap-1 shadow-sm">
             재경기 (기록 취소)
           </button>
-          <button onclick="prevFinalHeat()" class="px-3 sm:px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs sm:text-sm transition">
+          <button onclick="prevFinalHeat()" class="px-3 sm:px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl text-xs sm:text-sm border border-slate-700 transition">
             이전 시기
           </button>
-          <span id="finalHeatIndicator" class="font-mono font-extrabold text-sm px-3 text-slate-600">1 / 4</span>
-          <button onclick="nextFinalHeat()" class="px-3 sm:px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs sm:text-sm shadow transition">
+          <span id="finalHeatIndicator" class="font-mono font-extrabold text-sm px-3 text-slate-300">1 / 4</span>
+          <button onclick="nextFinalHeat()" class="px-3 sm:px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl text-xs sm:text-sm shadow-md transition">
             다음 시기
           </button>
         </div>
@@ -161,24 +161,24 @@
       <!-- 4개 레인 실시간 카드 그리드 (결선) -->
       <div id="finalLaneGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"></div>
 
-      <div class="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+      <div class="flex items-center justify-between bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-md">
         <span class="text-xs text-slate-400 font-medium">결선은 4색 레인을 1회씩 순환하여 총 4회 주행합니다.</span>
         <div class="flex items-center gap-3">
-          <button onclick="saveCurrentFinalHeat(false)" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl transition">
+          <button onclick="saveCurrentFinalHeat(false)" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl border border-slate-700 transition">
             결선 기록 저장
           </button>
-          <button onclick="saveCurrentFinalHeat(true)" class="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-xs sm:text-sm font-bold rounded-xl shadow transition flex items-center gap-1">
+          <button onclick="saveCurrentFinalHeat(true)" class="px-5 py-2.5 bg-amber-600 hover:bg-amber-500 text-white text-xs sm:text-sm font-bold rounded-xl shadow-md transition flex items-center gap-1">
             <span>저장 후 다음 시기 ➔</span>
           </button>
         </div>
       </div>
 
       <!-- 결선 최종 순위 현황 표 -->
-      <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
-        <h3 class="font-bold text-base text-slate-800">결선 4인 최종 순위 현황</h3>
+      <div class="bg-slate-900 rounded-2xl border border-slate-800 p-5 shadow-lg space-y-4">
+        <h3 class="font-bold text-base text-white">결선 4인 최종 순위 현황</h3>
         <div class="overflow-x-auto">
           <table class="w-full text-left text-xs border-collapse">
-            <thead class="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+            <thead class="bg-slate-800/80 text-slate-300 font-bold border-b border-slate-700">
               <tr>
                 <th class="p-3 text-center">순위</th>
                 <th class="p-3 text-center">차량번호</th>
@@ -187,10 +187,10 @@
                 <th class="p-3 text-center">2차 시기 (초)</th>
                 <th class="p-3 text-center">3차 시기 (초)</th>
                 <th class="p-3 text-center">4차 시기 (초)</th>
-                <th class="p-3 text-center text-amber-600 font-bold">최고기록 (MIN)</th>
+                <th class="p-3 text-center text-amber-400 font-bold">최고기록 (MIN)</th>
               </tr>
             </thead>
-            <tbody id="finalsSummaryBody" class="divide-y divide-slate-100"></tbody>
+            <tbody id="finalsSummaryBody" class="divide-y divide-slate-800 text-slate-300"></tbody>
           </table>
         </div>
       </div>
@@ -203,12 +203,12 @@
   <script>    
     const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyF1IWFFfu3M_Gk65dGsJK9CiCndoov_Ja4cACOG8h1UgDVOgzJ0Ge507hVhdovMxSa/exec"; 
 
-    // 전광판 1번(왼쪽)~4번(오른쪽) 순서와 1:1 매칭
+    // 다크 모드용 전광판 1번(왼쪽)~4번(오른쪽) 네온 컬러 테마 매칭
     const laneThemes = [
-      { label: '노랑', border: 'border-amber-400',   bg: 'bg-amber-50/70',   badge: 'bg-amber-500 text-white' },
-      { label: '초록', border: 'border-emerald-400', bg: 'bg-emerald-50/70', badge: 'bg-emerald-600 text-white' },
-      { label: '파랑', border: 'border-blue-400',    bg: 'bg-blue-50/70',    badge: 'bg-blue-500 text-white' },
-      { label: '빨강', border: 'border-rose-400',    bg: 'bg-rose-50/70',    badge: 'bg-rose-500 text-white' }
+      { label: '노랑', border: 'border-amber-500/40', bg: 'bg-amber-950/25', badge: 'bg-amber-500 text-slate-950 font-black' },
+      { label: '초록', border: 'border-emerald-500/40', bg: 'bg-emerald-950/25', badge: 'bg-emerald-500 text-slate-950 font-black' },
+      { label: '파랑', border: 'border-blue-500/40', bg: 'bg-blue-950/25', badge: 'bg-blue-500 text-white font-black' },
+      { label: '빨강', border: 'border-rose-500/40', bg: 'bg-rose-950/25', badge: 'bg-rose-500 text-white font-black' }
     ];
 
     let speedCars = [];
@@ -229,24 +229,24 @@
     function showToast(msg) {
       const box = document.getElementById('toastBox');
       const toast = document.createElement('div');
-      toast.className = "bg-slate-800 text-white text-xs px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 transition-all duration-300";
+      toast.className = "bg-slate-800 text-slate-100 border border-slate-700 text-xs px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 transition-all duration-300";
       toast.textContent = msg;
       box.appendChild(toast);
       setTimeout(() => toast.remove(), 3000);
     }
 
-    // 탭 전환
+    // 탭 전환 (다크 모드 스타일)
     function switchTab(tab) {
       if (tab === 'qualifying') {
         document.getElementById('view-qualifying').classList.remove('hidden');
         document.getElementById('view-finals').classList.add('hidden');
-        document.getElementById('tabBtn-qualifying').className = "px-3.5 py-1.5 bg-slate-900 text-white font-bold rounded-lg shadow-sm transition";
-        document.getElementById('tabBtn-finals').className = "px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-600 font-medium rounded-lg border border-slate-200 transition";
+        document.getElementById('tabBtn-qualifying').className = "px-3.5 py-1.5 bg-indigo-600 text-white font-bold rounded-lg shadow-sm transition";
+        document.getElementById('tabBtn-finals').className = "px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium rounded-lg border border-slate-700 transition";
       } else {
         document.getElementById('view-qualifying').classList.add('hidden');
         document.getElementById('view-finals').classList.remove('hidden');
-        document.getElementById('tabBtn-finals').className = "px-3.5 py-1.5 bg-slate-900 text-white font-bold rounded-lg shadow-sm transition";
-        document.getElementById('tabBtn-qualifying').className = "px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-600 font-medium rounded-lg border border-slate-200 transition";
+        document.getElementById('tabBtn-finals').className = "px-3.5 py-1.5 bg-amber-600 text-white font-bold rounded-lg shadow-sm transition";
+        document.getElementById('tabBtn-qualifying').className = "px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium rounded-lg border border-slate-700 transition";
         renderCurrentFinalHeat();
       }
     }
@@ -291,7 +291,7 @@
       }
     }
 
-    // 예선 카드 렌더링 (이름 강조 확대)
+    // 예선 카드 렌더링 (다크 테마 + 이름 강조 확대)
     function renderCurrentHeat() {
       if (qualifyingHeats.length === 0) return;
       const heat = qualifyingHeats[currentHeatIndex];
@@ -305,10 +305,10 @@
       heat.lanes.forEach((car, idx) => {
         const t = laneThemes[idx];
         const card = document.createElement('div');
-        card.className = `p-5 rounded-2xl border-2 ${t.border} ${t.bg} bg-white shadow-sm flex flex-col justify-between space-y-4 transition`;
+        card.className = `p-5 rounded-2xl border-2 ${t.border} ${t.bg} bg-slate-900 shadow-lg flex flex-col justify-between space-y-4 transition`;
 
         const isCarPresent = !!car;
-        const carIdBadge = isCarPresent ? `<span class="text-xs px-2 py-0.5 rounded bg-slate-200/80 text-slate-700 font-mono font-black">#${car.id}</span>` : '';
+        const carIdBadge = isCarPresent ? `<span class="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 font-mono font-black">#${car.id}</span>` : '';
         const carNameText = isCarPresent ? car.name : '빈 레인';
         const deptText = isCarPresent ? (car.dept || '') : '';
 
@@ -317,21 +317,21 @@
 
         card.innerHTML = `
           <div class="flex justify-between items-center">
-            <span class="px-2.5 py-1 rounded-md text-xs font-black tracking-wide ${t.badge}">${t.label}</span>
+            <span class="px-2.5 py-1 rounded-md text-xs tracking-wide ${t.badge}">${t.label}</span>
             <div class="flex items-center gap-1.5">
               ${carIdBadge}
-              <span class="text-xs text-slate-500 font-bold">${deptText}</span>
+              <span class="text-xs text-slate-400 font-bold">${deptText}</span>
             </div>
           </div>
           <div class="py-1">
-            <div class="text-3xl sm:text-4xl font-black text-slate-950 tracking-tight leading-tight truncate" title="${carNameText}">
+            <div class="text-3xl sm:text-4xl font-black text-white tracking-tight leading-tight truncate" title="${carNameText}">
               ${carNameText}
             </div>
           </div>
           <div>
-            <label class="block text-xs text-slate-500 font-semibold mb-1">기록 (초)</label>
+            <label class="block text-xs text-slate-400 font-semibold mb-1">기록 (초)</label>
             <input type="number" step="0.001" id="laneInput_${idx}" value="${existing !== '' ? existing : ''}" 
-              placeholder="0.000" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-center text-3xl font-black font-mono text-slate-900 focus:outline-none focus:border-slate-800 focus:bg-white focus:ring-1 focus:ring-slate-800 transition">
+              placeholder="0.000" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-center text-3xl font-black font-mono text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition placeholder:text-slate-700">
           </div>
         `;
         grid.appendChild(card);
@@ -357,16 +357,16 @@
         else if (r2 !== null) best = r2.toFixed(3);
 
         const tr = document.createElement('tr');
-        tr.className = "hover:bg-slate-50 transition border-b border-slate-100";
+        tr.className = "hover:bg-slate-800/60 transition border-b border-slate-800";
         tr.innerHTML = `
-          <td class="p-3 font-mono font-bold text-slate-700">#${car.id}</td>
-          <td class="p-3 text-slate-500">${car.dept}</td>
-          <td class="p-3 text-sm font-black text-slate-950">${car.name}</td>
-          <td class="p-3 text-center font-mono ${r1 ? 'font-bold text-slate-800' : 'text-slate-400'}">${r1 ? r1.toFixed(3) : '-'}</td>
-          <td class="p-3 text-center font-mono ${r2 ? 'font-bold text-slate-800' : 'text-slate-400'}">${r2 ? r2.toFixed(3) : '-'}</td>
-          <td class="p-3 text-center font-mono font-black text-blue-600">${best}</td>
+          <td class="p-3 font-mono font-bold text-slate-400">#${car.id}</td>
+          <td class="p-3 text-slate-400">${car.dept}</td>
+          <td class="p-3 text-sm font-black text-white">${car.name}</td>
+          <td class="p-3 text-center font-mono ${r1 ? 'font-bold text-slate-200' : 'text-slate-600'}">${r1 ? r1.toFixed(3) : '-'}</td>
+          <td class="p-3 text-center font-mono ${r2 ? 'font-bold text-slate-200' : 'text-slate-600'}">${r2 ? r2.toFixed(3) : '-'}</td>
+          <td class="p-3 text-center font-mono font-black text-indigo-400">${best}</td>
           <td class="p-3 text-center text-xs">
-            ${(r1 && r2) ? '<span class="text-emerald-600 font-bold">완료</span>' : '<span class="text-slate-400">대기</span>'}
+            ${(r1 && r2) ? '<span class="text-emerald-400 font-bold">완료</span>' : '<span class="text-slate-600">대기</span>'}
           </td>
         `;
         tbody.appendChild(tr);
@@ -437,7 +437,7 @@
       ];
     }
 
-    // 결선 카드 렌더링 (이름 강조 확대)
+    // 결선 카드 렌더링 (다크 테마 + 이름 강조 확대)
     function renderCurrentFinalHeat() {
       if (finalHeats.length === 0) initFinalHeats();
       if (finalHeats.length === 0) return;
@@ -452,28 +452,28 @@
       heat.lanes.forEach((car, idx) => {
         const t = laneThemes[idx];
         const card = document.createElement('div');
-        card.className = `p-5 rounded-2xl border-2 ${t.border} ${t.bg} bg-white shadow-sm flex flex-col justify-between space-y-4 transition`;
+        card.className = `p-5 rounded-2xl border-2 ${t.border} ${t.bg} bg-slate-900 shadow-lg flex flex-col justify-between space-y-4 transition`;
 
         const rKey = `r${heat.runNum}`;
         const existing = (finalRecords[car.id] && finalRecords[car.id][rKey]) ? finalRecords[car.id][rKey] : '';
 
         card.innerHTML = `
           <div class="flex justify-between items-center">
-            <span class="px-2.5 py-1 rounded-md text-xs font-black tracking-wide ${t.badge}">${t.label}</span>
+            <span class="px-2.5 py-1 rounded-md text-xs tracking-wide ${t.badge}">${t.label}</span>
             <div class="flex items-center gap-1.5">
-              <span class="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-mono font-black">#${car.id}</span>
-              <span class="text-xs text-amber-600 font-black tracking-wider">TOP 4</span>
+              <span class="text-xs px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 font-mono font-black">#${car.id}</span>
+              <span class="text-xs text-amber-400 font-black tracking-wider">TOP 4</span>
             </div>
           </div>
           <div class="py-1">
-            <div class="text-3xl sm:text-4xl font-black text-slate-950 tracking-tight leading-tight truncate" title="${car.name}">
+            <div class="text-3xl sm:text-4xl font-black text-white tracking-tight leading-tight truncate" title="${car.name}">
               ${car.name}
             </div>
           </div>
           <div>
-            <label class="block text-xs text-slate-500 font-semibold mb-1">기록 (초)</label>
+            <label class="block text-xs text-slate-400 font-semibold mb-1">기록 (초)</label>
             <input type="number" step="0.001" id="finalLaneInput_${idx}" value="${existing !== '' ? existing : ''}" 
-              placeholder="0.000" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-center text-3xl font-black font-mono text-slate-900 focus:outline-none focus:border-slate-800 focus:bg-white focus:ring-1 focus:ring-slate-800 transition">
+              placeholder="0.000" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-center text-3xl font-black font-mono text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition placeholder:text-slate-700">
           </div>
         `;
         grid.appendChild(card);
@@ -517,19 +517,19 @@
       summaryList.forEach((car, idx) => {
         const hasRecord = car.bestNum !== null;
         const rankText = hasRecord ? `${idx + 1}위` : '-';
-        const rankClass = (idx === 0 && hasRecord) ? "text-amber-500 font-extrabold text-sm" : "text-slate-500 font-bold";
+        const rankClass = (idx === 0 && hasRecord) ? "text-amber-400 font-extrabold text-sm" : "text-slate-400 font-bold";
 
         const tr = document.createElement('tr');
-        tr.className = "hover:bg-slate-50 transition border-b border-slate-100 text-slate-700";
+        tr.className = "hover:bg-slate-800/60 transition border-b border-slate-800 text-slate-300";
         tr.innerHTML = `
           <td class="p-3 text-center ${rankClass}">${rankText}</td>
-          <td class="p-3 font-mono font-bold text-slate-700 text-center">#${car.id}</td>
-          <td class="p-3 font-black text-slate-950 text-center text-sm">${car.name}</td>
-          <td class="p-3 text-center font-mono text-slate-600">${car.r1 || '-'}</td>
-          <td class="p-3 text-center font-mono text-slate-600">${car.r2 || '-'}</td>
-          <td class="p-3 text-center font-mono text-slate-600">${car.r3 || '-'}</td>
-          <td class="p-3 text-center font-mono text-slate-600">${car.r4 || '-'}</td>
-          <td class="p-3 text-center font-mono font-black text-indigo-600 text-base">${car.bestStr}</td>
+          <td class="p-3 font-mono font-bold text-slate-400 text-center">#${car.id}</td>
+          <td class="p-3 font-black text-white text-center text-sm">${car.name}</td>
+          <td class="p-3 text-center font-mono text-slate-400">${car.r1 || '-'}</td>
+          <td class="p-3 text-center font-mono text-slate-400">${car.r2 || '-'}</td>
+          <td class="p-3 text-center font-mono text-slate-400">${car.r3 || '-'}</td>
+          <td class="p-3 text-center font-mono text-slate-400">${car.r4 || '-'}</td>
+          <td class="p-3 text-center font-mono font-black text-amber-400 text-base">${car.bestStr}</td>
         `;
         tbody.appendChild(tr);
       });
@@ -786,18 +786,18 @@
       showToast("타이머 연결이 안전하게 해제되었습니다.");
     }
 
-    // 3. 상단 뱃지 UI 갱신 함수
+    // 3. 상단 뱃지 UI 갱신 함수 (다크 모드 스타일)
     function updateSerialBadge(isConnected) {
       const badge = document.getElementById('serialStatusBadge');
       if (!badge) return;
 
       if (isConnected) {
-        badge.className = "px-3 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 flex items-center gap-1.5 transition font-bold cursor-pointer hover:bg-emerald-100 shadow-sm";
-        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span><span>타이머 연결됨 (클릭시 해제)</span>`;
+        badge.className = "px-3 py-1.5 rounded-lg border border-emerald-500/40 bg-emerald-950/40 text-emerald-300 flex items-center gap-1.5 transition font-bold cursor-pointer hover:bg-emerald-900/50 shadow-sm";
+        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span><span>타이머 연결됨 (클릭시 해제)</span>`;
         badge.title = "클릭하면 타이머 연결을 종료합니다.";
       } else {
-        badge.className = "px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-500 flex items-center gap-1.5 transition font-medium cursor-pointer hover:bg-slate-100";
-        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-slate-400"></span><span>타이머 연결</span>`;
+        badge.className = "px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 flex items-center gap-1.5 transition font-medium cursor-pointer hover:bg-slate-700 hover:text-slate-200";
+        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-slate-500"></span><span>타이머 연결</span>`;
         badge.title = "블루투스 타이머에 연결합니다.";
       }
     }
