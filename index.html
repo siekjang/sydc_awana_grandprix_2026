@@ -24,9 +24,15 @@
   </style>
 </head>
 
+
+
+  <!-- pointer-events: none을 인라인으로 강제 지정 -->
+
+
+  
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans selection:bg-indigo-500 selection:text-white relative">
   <!-- 폭죽용 캔버스 (전체화면) -->
-  <canvas id="confettiCanvas" class="fixed inset-0 pointer-events-none z-[60] w-full h-full"></canvas>
+  <canvas id="confettiCanvas" class="fixed inset-0 pointer-events-none z-[70] w-full h-full" style="pointer-events: none;"></canvas>
 
   <!-- 상단 다크 헤더 -->
   <header class="bg-slate-900 border-b border-slate-800 px-6 py-4 shadow-md flex flex-wrap justify-between items-center gap-4">
