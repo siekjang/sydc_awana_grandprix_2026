@@ -173,7 +173,7 @@
       <div id="finalLaneGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5"></div>
 
       <div class="flex items-center justify-between bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-md">
-        <span class="text-xs text-slate-400 font-medium">결선은 4색 레인을 1회씩 순환하여 총 4회 주행합니다.</span>
+        <span class="text-xs text-slate-400 font-medium">결선은 4색 레인을 1회씩 순환하여 총 4회 주행합니다. (가장 작은 번호가 1차 주행 빨강 레인)</span>
         <div class="flex items-center gap-3">
           <button onclick="saveCurrentFinalHeat(false)" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl border border-slate-700 transition">
             결선 기록 저장
@@ -338,7 +338,7 @@
     let serialReader = null;
     let keepReading = false;
 
-    // Web Audio API 사운드 엔진
+    // Web Audio API 오디오 엔진
     let audioCtx = null;
     function getAudioContext() {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -703,15 +703,21 @@
       }
     }
 
-    // 2. 결선 조 편성 (레인 로테이션)
+    // 2. 결선 조 편성 (레인 로테이션 - 번호가 가장 작은 선수가 1차 주행 맨 오른쪽 빨강 레인)
     function initFinalHeats() {
       if (top4Finalists.length < 4) return;
-      const [c1, c2, c3, c4] = top4Finalists;
+      
+      // 결선 4인을 차량 번호 오름차순으로 정렬
+      const sortedByCarId = [...top4Finalists].sort((a, b) => a.id - b.id);
+      const [c1, c2, c3, c4] = sortedByCarId; // c1: 가장 작은 번호
+
+      // 레인 인덱스 0:노랑, 1:초록, 2:파랑, 3:빨강(가장 오른쪽)
+      // 1차 주행 시 c1이 빨강(3번 인덱스)에 오도록 편성
       finalHeats = [
-        { runNum: 1, title: '결선 제 1차 주행 (노·초·파·빨)', lanes: [c1, c2, c3, c4] },
-        { runNum: 2, title: '결선 제 2차 주행 (초·파·빨·노)', lanes: [c2, c3, c4, c1] },
-        { runNum: 3, title: '결선 제 3차 주행 (파·빨·노·초)', lanes: [c3, c4, c1, c2] },
-        { runNum: 4, title: '결선 제 4차 주행 (빨·노·초·파)', lanes: [c4, c1, c2, c3] }
+        { runNum: 1, title: '결선 제 1차 주행', lanes: [c4, c3, c2, c1] },
+        { runNum: 2, title: '결선 제 2차 주행', lanes: [c1, c4, c3, c2] },
+        { runNum: 3, title: '결선 제 3차 주행', lanes: [c2, c1, c4, c3] },
+        { runNum: 4, title: '결선 제 4차 주행', lanes: [c3, c2, c1, c4] }
       ];
     }
 
