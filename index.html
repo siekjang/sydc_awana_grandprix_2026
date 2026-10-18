@@ -1491,6 +1491,7 @@
           if (done) break;
     
           if (value) {
+            console.log("[하드웨어 원본 수신]:", value); 
             buffer += value;
     
             const regex = /([1-4A-D])\s*=\s*([0-9]+\.[0-9]+)[^ ]*/g;
